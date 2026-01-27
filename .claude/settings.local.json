@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build)",
+      "Bash(/usr/libexec/java_home -V)",
+      "WebSearch",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
