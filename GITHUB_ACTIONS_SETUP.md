@@ -1,20 +1,33 @@
 # GitHub Actions Setup Guide
 
-This guide explains how to set up automated APK builds using GitHub Actions for the Bloggo app.
+This guide explains how to set up automated APK builds and releases using GitHub Actions for the Bloggo app.
+
+## Quick Start
+
+1. **Push to main/master** → Automatic release created with patch version bump (v1.0.0 → v1.0.1)
+2. **Go to Releases** → Download APKs from latest release Assets
+3. **Want major/minor bump?** → Actions tab → Run workflow manually
 
 ## Overview
 
-The GitHub Actions workflow automatically builds both **debug** and **release** APKs on every push to main/master/develop branches. The APKs are available as downloadable artifacts from the Actions tab.
+The GitHub Actions workflow automatically:
+- **Builds** both debug and release APKs
+- **Creates GitHub Releases** with semantic versioning
+- **Attaches APKs** as downloadable assets to each release
+- **Auto-increments** version numbers following semantic versioning
 
 ## Workflow Features
 
-- ✅ Builds on every push to main/master/develop branches
+- ✅ Automatically creates releases on every push to main/master
+- ✅ Follows semantic versioning (v1.0.0, v1.0.1, etc.)
 - ✅ Runs unit tests before building
 - ✅ Builds debug APK (unsigned)
 - ✅ Builds release APK (signed if keystore is configured)
-- ✅ Uploads both APKs as artifacts (available for 30 days)
-- ✅ Provides build summary with APK sizes
-- ✅ Can be triggered manually from Actions tab
+- ✅ Creates Git tags for each release
+- ✅ Generates release notes from commits
+- ✅ Uploads APKs as release assets (directly downloadable)
+- ✅ Also uploads APKs as workflow artifacts
+- ✅ Can be triggered manually with custom version bump (patch/minor/major)
 
 ## Setting Up Release APK Signing
 
@@ -106,23 +119,82 @@ Debug APKs don't require signing configuration. You can build them anytime:
 
 The debug APK will be at: `app/build/outputs/apk/debug/app-debug.apk`
 
+## How Semantic Versioning Works
+
+Every push to `main` or `master` automatically creates a new release:
+
+1. **Auto-increment (default)**: Patch version is incremented automatically
+   - `v1.0.0` → `v1.0.1` → `v1.0.2`
+   - Happens on every push to main/master
+
+2. **Manual version bump**: Trigger workflow manually with custom bump type
+   - Go to **Actions** → **Build and Release APKs** → **Run workflow**
+   - Choose version bump:
+     - **patch** (1.0.0 → 1.0.1) - Bug fixes, small changes
+     - **minor** (1.0.0 → 1.1.0) - New features, backward compatible
+     - **major** (1.0.0 → 2.0.0) - Breaking changes
+
+3. **Version Code**: Auto-generated Unix timestamp (ensures uniqueness)
+
 ## Workflow Triggers
 
-The workflow runs automatically on:
-- Push to `main`, `master`, or `develop` branches
-- Pull requests to `main` or `master`
-- Manual trigger (click "Run workflow" in Actions tab)
+The workflow runs:
+- ✅ Automatically on every push to `main` or `master` (patch version bump)
+- ✅ Manually from Actions tab (choose version bump type)
 
-## Downloading APKs from GitHub Actions
+## Downloading APKs
+
+### From GitHub Releases (Recommended)
+
+1. Go to your repository on GitHub
+2. Click **Releases** (right sidebar or `/releases` in URL)
+3. Click on the latest release (e.g., "Bloggo v1.0.1")
+4. Scroll to **Assets** section
+5. Download:
+   - `bloggo-v1.0.1-release.apk` - **Recommended** (signed, for installation)
+   - `bloggo-v1.0.1-debug.apk` - For testing/development
+
+### From Workflow Artifacts (Alternative)
+
+If you prefer, you can also download from the Actions tab:
 
 1. Go to **Actions** tab in your repository
 2. Click on the workflow run you want
 3. Scroll down to **Artifacts** section
-4. Download:
-   - `bloggo-debug-{commit-sha}` - Debug APK
-   - `bloggo-release-{commit-sha}` - Release APK (signed if configured)
+4. Download the APK artifacts
 
-Artifacts are kept for 30 days.
+**Note**: Release assets are permanent (until you delete them), while artifacts expire after 30 days.
+
+## Release Notes
+
+Each release automatically includes:
+- **What's New** - List of commits since last release
+- **Installation Instructions** - Which APK to download
+- **Requirements** - Minimum Android version
+- **Build Information** - Version, commit hash, build date
+
+## Managing Releases
+
+### Deleting a Release
+
+1. Go to **Releases** in your repository
+2. Click on the release you want to delete
+3. Click **Delete** (top right)
+4. Confirm deletion
+
+**Note**: This doesn't delete the Git tag. To delete the tag:
+```bash
+git tag -d v1.0.1
+git push origin :refs/tags/v1.0.1
+```
+
+### Editing Release Notes
+
+1. Go to **Releases** in your repository
+2. Click on the release you want to edit
+3. Click **Edit** (top right)
+4. Update the description
+5. Click **Update release**
 
 ## Troubleshooting
 
@@ -131,6 +203,11 @@ Artifacts are kept for 30 days.
 - Verify the base64 encoding didn't introduce line breaks
 - Check the workflow logs for error messages
 
+### "Tag already exists" error
+- This means a release with that version already exists
+- Either delete the existing tag/release or manually bump the version in `build.gradle.kts`
+- To delete: Go to Releases → Delete release → Delete tag via git
+
 ### Workflow fails with "permission denied"
 - The workflow automatically makes gradlew executable
 - If it still fails, check that gradlew is committed to the repository
@@ -138,6 +215,11 @@ Artifacts are kept for 30 days.
 ### Build fails with Java version error
 - The workflow uses JDK 17, which is compatible with this project
 - If you need a different version, edit `.github/workflows/build-apk.yml`
+
+### Version not incrementing correctly
+- Check that the version in `build.gradle.kts` follows semantic versioning (X.Y.Z)
+- The workflow reads the current version and increments it
+- If the version is malformed, the workflow will fail
 
 ## Security Best Practices
 
