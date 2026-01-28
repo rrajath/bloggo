@@ -1,5 +1,6 @@
 package com.rrajath.hugowriter.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -17,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,7 +28,7 @@ import com.rrajath.hugowriter.viewmodel.PostListViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PostListScreen(
     onNavigateToEditor: (String?) -> Unit,
@@ -46,6 +48,7 @@ fun PostListScreen(
 
     val unpublishedPosts = posts.filter { !it.isPublished }
     val publishedPosts = posts.filter { it.isPublished }
+    val context = LocalContext.current
 
     // Refresh posts when screen is displayed
     LaunchedEffect(Unit) {
@@ -91,30 +94,56 @@ fun PostListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Posts") },
+                title = { Text("Bloggo") },
                 actions = {
-                    IconButton(
-                        onClick = { viewModel.syncFromGitHub() },
-                        enabled = !isSyncing
+                    Box(
+                        modifier = Modifier.combinedClickable(
+                            onClick = { if (!isSyncing) viewModel.syncFromGitHub() },
+                            onLongClick = {
+                                Toast.makeText(context, "Refresh", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     ) {
-                        if (isSyncing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Sync from GitHub")
+                        IconButton(
+                            onClick = { viewModel.syncFromGitHub() },
+                            enabled = !isSyncing
+                        ) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = "Sync from GitHub")
+                            }
                         }
                     }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    Box(
+                        modifier = Modifier.combinedClickable(
+                            onClick = onNavigateToSettings,
+                            onLongClick = {
+                                Toast.makeText(context, "Settings", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    ) {
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        }
                     }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { onNavigateToEditor(null) }) {
+            FloatingActionButton(
+                onClick = { onNavigateToEditor(null) },
+                modifier = Modifier.combinedClickable(
+                    onClick = { onNavigateToEditor(null) },
+                    onLongClick = {
+                        Toast.makeText(context, "New Post", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "New Post")
             }
         }

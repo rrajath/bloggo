@@ -1,6 +1,8 @@
 package com.rrajath.hugowriter.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -13,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,6 +42,7 @@ fun PostEditorScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val titleBringIntoViewRequester = remember { BringIntoViewRequester() }
     val contentBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val context = LocalContext.current
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
@@ -79,18 +83,45 @@ fun PostEditorScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        scope.launch {
-                            viewModel.savePost()
-                            onNavigateBack()
+                    Box(
+                        modifier = Modifier.combinedClickable(
+                            onClick = {
+                                scope.launch {
+                                    viewModel.savePost()
+                                    onNavigateBack()
+                                }
+                            },
+                            onLongClick = {
+                                Toast.makeText(context, "Back", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    ) {
+                        IconButton(onClick = {
+                            scope.launch {
+                                viewModel.savePost()
+                                onNavigateBack()
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.togglePreviewMode() }) {
-                        Text(if (isPreviewMode) "Edit" else "Preview")
+                    Box(
+                        modifier = Modifier.combinedClickable(
+                            onClick = { viewModel.togglePreviewMode() },
+                            onLongClick = {
+                                Toast.makeText(
+                                    context,
+                                    if (isPreviewMode) "Edit" else "Preview",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    ) {
+                        TextButton(onClick = { viewModel.togglePreviewMode() }) {
+                            Text(if (isPreviewMode) "Edit" else "Preview")
+                        }
                     }
                 }
             )
