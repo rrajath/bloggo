@@ -366,13 +366,24 @@ fun PostListItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (post.isPublished) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Published",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (post.isPublished) {
+                    Text(
+                        text = "Published",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                if (post.isDraft()) {
+                    Text(
+                        text = "Draft",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                    )
+                }
             }
         }
     }

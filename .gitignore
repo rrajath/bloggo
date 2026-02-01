@@ -13,6 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea
 
 # Keystore files - NEVER commit these!
 *.jks

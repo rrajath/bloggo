@@ -102,31 +102,98 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Updates the title field in the frontmatter of the content.
+     * Supports both YAML (---) and TOML (+++) frontmatter formats.
+     */
+    private fun updateFrontmatterTitle(content: String, newTitle: String): String {
+        // Extract frontmatter - support both --- (YAML) and +++ (TOML) delimiters
+        val yamlFrontmatterRegex = "^(---\\n)([\\s\\S]*?)(\\n---)".toRegex()
+        val tomlFrontmatterRegex = "^(\\+\\+\\+\\n)([\\s\\S]*?)(\\n\\+\\+\\+)".toRegex()
+
+        val yamlMatch = yamlFrontmatterRegex.find(content)
+        val tomlMatch = tomlFrontmatterRegex.find(content)
+
+        return when {
+            yamlMatch != null -> {
+                val frontmatterStart = yamlMatch.groupValues[1]
+                val frontmatterBody = yamlMatch.groupValues[2]
+                val frontmatterEnd = yamlMatch.groupValues[3]
+                val remainingContent = content.substring(yamlMatch.range.last + 1)
+
+                // Update the title field (YAML format: title: "value")
+                val titleRegex = "title\\s*:\\s*[\"']?[^\"'\\n]*[\"']?".toRegex()
+                val updatedFrontmatter = if (titleRegex.containsMatchIn(frontmatterBody)) {
+                    frontmatterBody.replace(titleRegex, "title: \"$newTitle\"")
+                } else {
+                    // If title field doesn't exist, add it at the beginning
+                    "title: \"$newTitle\"\n$frontmatterBody"
+                }
+
+                frontmatterStart + updatedFrontmatter + frontmatterEnd + remainingContent
+            }
+            tomlMatch != null -> {
+                val frontmatterStart = tomlMatch.groupValues[1]
+                val frontmatterBody = tomlMatch.groupValues[2]
+                val frontmatterEnd = tomlMatch.groupValues[3]
+                val remainingContent = content.substring(tomlMatch.range.last + 1)
+
+                // Update the title field (TOML format: title = "value")
+                val titleRegex = "title\\s*=\\s*[\"']?[^\"'\\n]*[\"']?".toRegex()
+                val updatedFrontmatter = if (titleRegex.containsMatchIn(frontmatterBody)) {
+                    frontmatterBody.replace(titleRegex, "title = \"$newTitle\"")
+                } else {
+                    // If title field doesn't exist, add it at the beginning
+                    "title = \"$newTitle\"\n$frontmatterBody"
+                }
+
+                frontmatterStart + updatedFrontmatter + frontmatterEnd + remainingContent
+            }
+            else -> content // No frontmatter found, return as is
+        }
+    }
+
     suspend fun savePost() {
         _isSaving.value = true
         try {
             val currentPost = _post.value ?: return
 
+            // Don't save if both title and content are empty
+            if (_title.value.isBlank() && _content.value.isBlank()) {
+                return
+            }
+
             val settings = settingsRepository.appSettings.first()
 
-            // Only add frontmatter to NEW posts (empty content) that don't already have frontmatter
+            // Trim the title to remove leading/trailing spaces
+            val trimmedTitle = _title.value.trim()
+
+            // Check if content has frontmatter
             val hasFrontmatter = _content.value.startsWith("---") || _content.value.startsWith("+++")
             val isNewPost = currentPost.content.isEmpty()
 
-            val updatedContent = if (isNewPost && _title.value.isNotBlank() && !hasFrontmatter) {
-                AppSettings.generateFrontmatter(_title.value, settings.frontmatterTemplate) + _content.value
-            } else {
-                _content.value
+            val updatedContent = when {
+                // New post without frontmatter - add frontmatter
+                isNewPost && trimmedTitle.isNotBlank() && !hasFrontmatter -> {
+                    AppSettings.generateFrontmatter(trimmedTitle, settings.frontmatterTemplate) + _content.value
+                }
+                // Existing post with frontmatter - update the title in frontmatter
+                hasFrontmatter && trimmedTitle != currentPost.title -> {
+                    updateFrontmatterTitle(_content.value, trimmedTitle)
+                }
+                // Otherwise keep content as is
+                else -> _content.value
             }
 
             val updatedPost = currentPost.copy(
-                title = _title.value,
+                title = trimmedTitle,
                 content = updatedContent,
                 updatedAt = System.currentTimeMillis()
             )
 
             postRepository.savePost(updatedPost)
             _post.value = updatedPost
+            _title.value = trimmedTitle
             _content.value = updatedContent
         } finally {
             _isSaving.value = false
@@ -160,11 +227,12 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                 val result = gitHubService.publishPost(currentPost, gitHubConfig)
 
                 if (result.isSuccess) {
-                    // Update post as published
+                    // Update post as published and track the filename
                     val publishedPost = currentPost.copy(
                         isPublished = true,
                         publishedAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
+                        updatedAt = System.currentTimeMillis(),
+                        publishedFilename = currentPost.getFileName()  // Track the published filename
                     )
                     postRepository.savePost(publishedPost)
                     _post.value = publishedPost

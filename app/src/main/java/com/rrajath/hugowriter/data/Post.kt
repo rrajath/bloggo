@@ -12,14 +12,50 @@ data class Post(
     val createdAt: Long,
     val updatedAt: Long,
     val publishedAt: Long? = null,
-    val isPublished: Boolean = false
+    val isPublished: Boolean = false,
+    val publishedFilename: String? = null  // Track the filename when first published
 ) {
     fun getWordCount(): Int {
         return content.trim().split("\\s+".toRegex()).size
     }
 
     fun getFileName(): String {
-        return title.lowercase().replace(" ", "-").replace("[^a-z0-9-]".toRegex(), "") + ".md"
+        return title.trim().lowercase().replace(" ", "-").replace("[^a-z0-9-]".toRegex(), "") + ".md"
+    }
+
+    /**
+     * Extract the draft status from the post's frontmatter.
+     * Returns true if draft field is set to true, false otherwise.
+     */
+    fun isDraft(): Boolean {
+        try {
+            // Extract frontmatter - support both --- (YAML) and +++ (TOML) delimiters
+            val yamlFrontmatterRegex = "^---\\n([\\s\\S]*?)\\n---".toRegex()
+            val tomlFrontmatterRegex = "^\\+\\+\\+\\n([\\s\\S]*?)\\n\\+\\+\\+".toRegex()
+
+            val yamlMatch = yamlFrontmatterRegex.find(content)
+            val tomlMatch = tomlFrontmatterRegex.find(content)
+            val frontmatterMatch = yamlMatch ?: tomlMatch
+
+            if (frontmatterMatch == null) {
+                return false
+            }
+
+            val frontmatter = frontmatterMatch.groupValues[1]
+
+            // Extract draft from frontmatter (support both YAML "draft:" and TOML "draft =")
+            val draftRegex = "draft\\s*[=:]\\s*(true|false)".toRegex()
+            val draftMatch = draftRegex.find(frontmatter)
+
+            if (draftMatch != null) {
+                val draftValue = draftMatch.groupValues[1].trim()
+                return draftValue == "true"
+            }
+        } catch (e: Exception) {
+            Log.e("Post", "[$title] Exception in isDraft: ${e.message}")
+        }
+
+        return false
     }
 
     /**

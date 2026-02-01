@@ -57,20 +57,50 @@ class GitHubService {
 
             initializeRetrofit(config.personalAccessToken)
 
-            val filePath = "${config.targetDirectory}${post.getFileName()}"
+            val newFilename = post.getFileName()
+            val newFilePath = "${config.targetDirectory}$newFilename"
             val content = post.content
             val encodedContent = Base64.encodeToString(
                 content.toByteArray(Charsets.UTF_8),
                 Base64.NO_WRAP
             )
 
-            // Check if file already exists to get its SHA
+            // If the post was previously published with a different filename, delete the old file
+            if (post.publishedFilename != null && post.publishedFilename != newFilename) {
+                val oldFilePath = "${config.targetDirectory}${post.publishedFilename}"
+                try {
+                    val oldFileResponse = api?.getFileContent(
+                        owner = config.repositoryOwner,
+                        repo = config.repositoryName,
+                        path = oldFilePath,
+                        ref = config.branch
+                    )
+                    if (oldFileResponse?.isSuccessful == true && oldFileResponse.body() != null) {
+                        val oldSha = oldFileResponse.body()!!.sha
+                        val deleteRequest = DeleteFileRequest(
+                            message = "Rename post: ${post.publishedFilename} -> $newFilename",
+                            sha = oldSha,
+                            branch = config.branch
+                        )
+                        api?.deleteFile(
+                            owner = config.repositoryOwner,
+                            repo = config.repositoryName,
+                            path = oldFilePath,
+                            request = deleteRequest
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Old file doesn't exist or couldn't be deleted, continue anyway
+                }
+            }
+
+            // Check if file already exists to get its SHA (for the new filename)
             var existingSha: String? = null
             try {
                 val existingFileResponse = api?.getFileContent(
                     owner = config.repositoryOwner,
                     repo = config.repositoryName,
-                    path = filePath,
+                    path = newFilePath,
                     ref = config.branch
                 )
                 if (existingFileResponse?.isSuccessful == true) {
@@ -94,13 +124,13 @@ class GitHubService {
             val response = api?.createOrUpdateFile(
                 owner = config.repositoryOwner,
                 repo = config.repositoryName,
-                path = filePath,
+                path = newFilePath,
                 request = request
             )
 
             if (response?.isSuccessful == true) {
                 val htmlUrl = response.body()?.content?.htmlUrl
-                    ?: "https://github.com/${config.getFullRepositoryName()}/blob/${config.branch}/$filePath"
+                    ?: "https://github.com/${config.getFullRepositoryName()}/blob/${config.branch}/$newFilePath"
                 Result.success(htmlUrl)
             } else {
                 val errorBody = response?.errorBody()?.string()
@@ -119,7 +149,9 @@ class GitHubService {
 
             initializeRetrofit(config.personalAccessToken)
 
-            val filePath = "${config.targetDirectory}${post.getFileName()}"
+            // Use publishedFilename if available, otherwise use current filename
+            val filename = post.publishedFilename ?: post.getFileName()
+            val filePath = "${config.targetDirectory}$filename"
 
             // Get the file's SHA first
             val fileResponse = api?.getFileContent(
