@@ -20,7 +20,11 @@ data class Post(
     }
 
     fun getFileName(): String {
-        return title.trim().lowercase().replace(" ", "-").replace("[^a-z0-9-]".toRegex(), "") + ".md"
+        return title.trim().lowercase()
+            .replace("\\s*-\\s*".toRegex(), "-")  // collapse spaces around dashes into a single dash
+            .replace(" ", "-")                      // convert remaining spaces to dashes
+            .replace("[^a-z0-9-]".toRegex(), "")   // strip non-alphanumeric/dash characters
+            .plus(".md")
     }
 
     /**
