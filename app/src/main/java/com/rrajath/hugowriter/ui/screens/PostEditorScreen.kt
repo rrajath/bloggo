@@ -1,6 +1,8 @@
 package com.rrajath.hugowriter.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +44,7 @@ fun PostEditorScreen(
     val isSaving by viewModel.isSaving.collectAsState()
     val selectedTargetPath by viewModel.selectedTargetPath.collectAsState()
     val availableTargetPaths by viewModel.availableTargetPaths.collectAsState()
+    val post by viewModel.post.collectAsState()
     
     var isPathMenuExpanded by remember { mutableStateOf(false) }
 
@@ -49,6 +53,12 @@ fun PostEditorScreen(
     val titleBringIntoViewRequester = remember { BringIntoViewRequester() }
     val contentBringIntoViewRequester = remember { BringIntoViewRequester() }
     val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.addImage(it) }
+    }
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
@@ -129,6 +139,13 @@ fun PostEditorScreen(
                             Text(if (isPreviewMode) "Edit" else "Preview")
                         }
                     }
+                    
+                    IconButton(onClick = { imagePickerLauncher.launch("image/*") }) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Image"
+                        )
+                    }
                 }
             )
         },
@@ -179,7 +196,10 @@ fun PostEditorScreen(
                             .padding(16.dp)
                     ) {
                         if (content.isNotBlank()) {
-                            MarkdownRenderer(markdown = content)
+                            MarkdownRenderer(
+                                markdown = content,
+                                postId = post?.id
+                            )
                         } else {
                             Text(
                                 text = "Nothing to preview yet...",

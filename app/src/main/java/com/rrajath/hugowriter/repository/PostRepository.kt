@@ -18,6 +18,11 @@ class PostRepository(private val context: Context) {
         get() = File(context.filesDir, "posts").apply {
             if (!exists()) mkdirs()
         }
+    
+    private val imagesDirectory: File
+        get() = File(context.filesDir, "images").apply {
+            if (!exists()) mkdirs()
+        }
 
     suspend fun getAllPosts(): List<Post> = withContext(Dispatchers.IO) {
         try {
@@ -141,6 +146,10 @@ class PostRepository(private val context: Context) {
             val file = File(postsDirectory, "$id.json")
             if (file.exists()) {
                 file.delete()
+                
+                // Also delete associated images
+                deletePostImages(id)
+                
                 Result.success(Unit)
             } else {
                 Result.failure(FileNotFoundException("Post not found"))
@@ -154,6 +163,32 @@ class PostRepository(private val context: Context) {
         getAllPosts().filter {
             it.title.contains(query, ignoreCase = true) ||
                     it.content.contains(query, ignoreCase = true)
+        }
+    }
+
+    suspend fun saveImage(postId: String, fileName: String, inputStream: java.io.InputStream): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val postImagesDir = File(imagesDirectory, postId).apply { if (!exists()) mkdirs() }
+            val imageFile = File(postImagesDir, fileName)
+            
+            imageFile.outputStream().use { output ->
+                inputStream.copyTo(output)
+            }
+            Result.success(imageFile.absolutePath)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getImageFile(postId: String, fileName: String): File? = withContext(Dispatchers.IO) {
+        val imageFile = File(File(imagesDirectory, postId), fileName)
+        if (imageFile.exists()) imageFile else null
+    }
+
+    private fun deletePostImages(postId: String) {
+        val postImagesDir = File(imagesDirectory, postId)
+        if (postImagesDir.exists()) {
+            postImagesDir.deleteRecursively()
         }
     }
 }

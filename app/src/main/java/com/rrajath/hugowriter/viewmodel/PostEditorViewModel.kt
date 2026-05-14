@@ -46,6 +46,9 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
     private val _availableTargetPaths = MutableStateFlow<List<String>>(emptyList())
     val availableTargetPaths: StateFlow<List<String>> = _availableTargetPaths.asStateFlow()
 
+    private val _images = MutableStateFlow<List<String>>(emptyList())
+    val images: StateFlow<List<String>> = _images.asStateFlow()
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
@@ -59,6 +62,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                     _post.value = post
                     _title.value = post.title
                     _content.value = post.content
+                    _images.value = post.images
                 } else {
                     // Post not found, create new
                     createNewPost()
@@ -91,6 +95,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
         _post.value = newPost
         _title.value = ""
         _content.value = ""
+        _images.value = emptyList()
     }
 
     fun onTitleChanged(newTitle: String) {
@@ -111,6 +116,41 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
 
     fun onTargetPathSelected(path: String) {
         _selectedTargetPath.value = path
+        scheduleAutoSave()
+    }
+
+    fun addImage(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val currentPost = _post.value ?: return@launch
+            val contentResolver = getApplication<Application>().contentResolver
+            
+            // Generate a filename for the image
+            val fileName = "image_${System.currentTimeMillis()}.jpg"
+            
+            try {
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val result = postRepository.saveImage(currentPost.id, fileName, inputStream)
+                    result.onSuccess {
+                        val updatedImages = _images.value.toMutableList()
+                        updatedImages.add(fileName)
+                        _images.value = updatedImages
+                        
+                        // Insert markdown into content
+                        insertImageMarkdown(fileName)
+                        
+                        savePost()
+                    }
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+
+    private fun insertImageMarkdown(fileName: String) {
+        val currentContent = _content.value
+        val markdown = "\n\n![Image]($fileName)\n\n"
+        _content.value = currentContent + markdown
         scheduleAutoSave()
     }
 
@@ -209,7 +249,9 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                 title = trimmedTitle,
                 content = updatedContent,
                 updatedAt = System.currentTimeMillis(),
-                targetPath = _selectedTargetPath.value
+                targetPath = _selectedTargetPath.value,
+                images = _images.value,
+                isBundle = _images.value.isNotEmpty()
             )
 
             postRepository.savePost(updatedPost)
@@ -245,15 +287,33 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                     return@launch
                 }
 
-                val result = gitHubService.publishPost(currentPost, gitHubConfig, _selectedTargetPath.value)
+                // Load image bytes
+                val imageBytesList = mutableListOf<Pair<String, ByteArray>>()
+                for (imageName in _images.value) {
+                    val file = postRepository.getImageFile(currentPost.id, imageName)
+                    if (file != null) {
+                        imageBytesList.add(imageName to file.readBytes())
+                    }
+                }
+
+                val result = gitHubService.publishPost(
+                    currentPost,
+                    gitHubConfig,
+                    _selectedTargetPath.value,
+                    imageBytesList
+                )
 
                 if (result.isSuccess) {
+                    val isBundle = _images.value.isNotEmpty()
+                    val finalFilename = if (isBundle) currentPost.getBundleContentPath() else currentPost.getFileName()
+                    
                     // Update post as published and track the filename
                     val publishedPost = currentPost.copy(
                         isPublished = true,
                         publishedAt = System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
-                        publishedFilename = currentPost.getFileName()  // Track the published filename
+                        publishedFilename = finalFilename,
+                        isBundle = isBundle
                     )
                     postRepository.savePost(publishedPost)
                     _post.value = publishedPost

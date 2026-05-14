@@ -14,18 +14,32 @@ data class Post(
     val publishedAt: Long? = null,
     val isPublished: Boolean = false,
     val publishedFilename: String? = null,  // Track the filename when first published
-    val targetPath: String? = null           // Track which directory this post belongs to
+    val targetPath: String? = null,          // Track which directory this post belongs to
+    val images: List<String> = emptyList(),  // List of image filenames attached to this post
+    val isBundle: Boolean = false            // Track if it's currently a Hugo Page Bundle
 ) {
+    fun shouldBeBundle(): Boolean = images.isNotEmpty()
     fun getWordCount(): Int {
         return content.trim().split("\\s+".toRegex()).size
     }
 
     fun getFileName(): String {
+        return getBaseName().plus(".md")
+    }
+
+    fun getBaseName(): String {
         return title.trim().lowercase()
-            .replace("\\s*-\\s*".toRegex(), "-")  // collapse spaces around dashes into a single dash
-            .replace(" ", "-")                      // convert remaining spaces to dashes
-            .replace("[^a-z0-9-]".toRegex(), "")   // strip non-alphanumeric/dash characters
-            .plus(".md")
+            .replace("\\s*-\\s*".toRegex(), "-")
+            .replace(" ", "-")
+            .replace("[^a-z0-9-]".toRegex(), "")
+    }
+
+    fun getBundleFolderName(): String {
+        return getBaseName()
+    }
+
+    fun getBundleContentPath(): String {
+        return "${getBundleFolderName()}/index.md"
     }
 
     /**
