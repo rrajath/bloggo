@@ -23,7 +23,7 @@ class SettingsRepository(private val context: Context) {
         private val GITHUB_REPO_OWNER = stringPreferencesKey("github_repo_owner")
         private val GITHUB_REPO_NAME = stringPreferencesKey("github_repo_name")
         private val GITHUB_BRANCH = stringPreferencesKey("github_branch")
-        private val GITHUB_TARGET_DIR = stringPreferencesKey("github_target_dir")
+        private val GITHUB_TARGET_DIRS = stringPreferencesKey("github_target_dirs")
     }
 
     val appSettings: Flow<AppSettings> = context.dataStore.data.map { preferences ->
@@ -35,12 +35,15 @@ class SettingsRepository(private val context: Context) {
     }
 
     val gitHubConfig: Flow<GitHubConfig> = context.dataStore.data.map { preferences ->
+        val directoriesString = preferences[GITHUB_TARGET_DIRS] ?: "content/posts/"
+        val directories = directoriesString.split(",").filter { it.isNotBlank() }
+        
         GitHubConfig(
             personalAccessToken = preferences[GITHUB_PAT] ?: "",
             repositoryOwner = preferences[GITHUB_REPO_OWNER] ?: "",
             repositoryName = preferences[GITHUB_REPO_NAME] ?: "",
             branch = preferences[GITHUB_BRANCH] ?: "main",
-            targetDirectory = preferences[GITHUB_TARGET_DIR] ?: "content/posts/"
+            targetDirectories = if (directories.isEmpty()) listOf("content/posts/") else directories
         )
     }
 
@@ -62,7 +65,7 @@ class SettingsRepository(private val context: Context) {
             preferences[GITHUB_REPO_OWNER] = config.repositoryOwner
             preferences[GITHUB_REPO_NAME] = config.repositoryName
             preferences[GITHUB_BRANCH] = config.branch
-            preferences[GITHUB_TARGET_DIR] = config.targetDirectory
+            preferences[GITHUB_TARGET_DIRS] = config.targetDirectories.joinToString(",")
         }
     }
 }

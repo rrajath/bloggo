@@ -14,8 +14,8 @@ android {
         applicationId = "com.rrajath.hugowriter"
         minSdk = 33
         targetSdk = 36
-        versionCode = 29513080
-        versionName = "1.0.3"
+        versionCode = 29646447
+        versionName = "1.0.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -91,6 +92,7 @@ dependencies {
 
     // Markdown
     implementation(libs.multiplatform.markdown.renderer.m3)
+    implementation(libs.richeditor.compose)
     implementation(libs.coil.compose)
 
     // Kotlin Serialization

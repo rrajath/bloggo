@@ -1,6 +1,8 @@
 package com.rrajath.hugowriter.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,8 +23,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rrajath.hugowriter.ui.components.FormattingToolbar
 import com.rrajath.hugowriter.ui.components.MarkdownRenderer
+import com.rrajath.hugowriter.ui.components.MarkdownVisualTransformation
 import com.rrajath.hugowriter.viewmodel.PostEditorViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,12 +49,27 @@ fun PostEditorScreen(
     val isPublishing by viewModel.isPublishing.collectAsState()
     val publishResult by viewModel.publishResult.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val selectedTargetPath by viewModel.selectedTargetPath.collectAsState()
+    val availableTargetPaths by viewModel.availableTargetPaths.collectAsState()
+    val post by viewModel.post.collectAsState()
+    
+    var isPathMenuExpanded by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val titleBringIntoViewRequester = remember { BringIntoViewRequester() }
     val contentBringIntoViewRequester = remember { BringIntoViewRequester() }
     val context = LocalContext.current
+    
+    var showLinkDialog by remember { mutableStateOf(false) }
+    var linkTitle by remember { mutableStateOf("") }
+    var linkUrl by remember { mutableStateOf("") }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.addImage(it) }
+    }
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
@@ -125,11 +150,55 @@ fun PostEditorScreen(
                             Text(if (isPreviewMode) "Edit" else "Preview")
                         }
                     }
+                    
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
+        if (showLinkDialog) {
+            AlertDialog(
+                onDismissRequest = { showLinkDialog = false },
+                title = { Text("Insert Link") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = linkTitle,
+                            onValueChange = { linkTitle = it },
+                            label = { Text("Title") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = linkUrl,
+                            onValueChange = { linkUrl = it },
+                            label = { Text("URL") },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("https://...") }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.applyLink(linkTitle, linkUrl)
+                            showLinkDialog = false
+                            linkTitle = ""
+                            linkUrl = ""
+                        },
+                        enabled = linkUrl.isNotBlank()
+                    ) {
+                        Text("Insert")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLinkDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -174,8 +243,11 @@ fun PostEditorScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        if (content.isNotBlank()) {
-                            MarkdownRenderer(markdown = content)
+                        if (content.text.isNotBlank()) {
+                            MarkdownRenderer(
+                                markdown = content.text,
+                                postId = post?.id
+                            )
                         } else {
                             Text(
                                 text = "Nothing to preview yet...",
@@ -205,8 +277,93 @@ fun PostEditorScreen(
                     placeholder = { Text("Write your post content here...") },
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
+                    ),
+                    visualTransformation = MarkdownVisualTransformation(
+                        primaryColor = MaterialTheme.colorScheme.primary,
+                        secondaryColor = MaterialTheme.colorScheme.secondary
                     )
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Formatting Toolbar
+                FormattingToolbar(
+                    onBoldClick = { viewModel.applyFormatting("**", "**") },
+                    onItalicClick = { viewModel.applyFormatting("*", "*") },
+                    onLinkClick = {
+                        val selection = content.selection
+                        linkTitle = if (!selection.collapsed) {
+                            content.text.substring(selection.start, selection.end)
+                        } else {
+                            ""
+                        }
+                        showLinkDialog = true
+                    },
+                    onCodeClick = { viewModel.applyFormatting("`", "`") },
+                    onQuoteClick = { viewModel.toggleQuote() },
+                    onImageClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Target Path Selection
+            if (availableTargetPaths.isNotEmpty()) {
+                Text(
+                    text = "Publishing Path",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedCard(
+                        onClick = { isPathMenuExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Directory",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(text = selectedTargetPath)
+                            }
+                        }
+                    }
+                    
+                    DropdownMenu(
+                        expanded = isPathMenuExpanded,
+                        onDismissRequest = { isPathMenuExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        availableTargetPaths.forEach { path ->
+                            DropdownMenuItem(
+                                text = { Text(path) },
+                                onClick = {
+                                    viewModel.onTargetPathSelected(path)
+                                    isPathMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                if (title.isNotBlank()) {
+                    val finalPath = "${selectedTargetPath.trimEnd('/')}/${viewModel.post.value?.getFileName() ?: ""}".trimStart('/')
+                    Text(
+                        text = "Final path: $finalPath",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -220,7 +377,7 @@ fun PostEditorScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving && title.isNotBlank() && content.isNotBlank(),
+                enabled = !isSaving && title.isNotBlank() && content.text.isNotBlank(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
@@ -241,7 +398,7 @@ fun PostEditorScreen(
             Button(
                 onClick = { viewModel.publishPost() },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isPublishing && title.isNotBlank() && content.isNotBlank()
+                enabled = !isPublishing && title.isNotBlank() && content.text.isNotBlank()
             ) {
                 if (isPublishing) {
                     CircularProgressIndicator(

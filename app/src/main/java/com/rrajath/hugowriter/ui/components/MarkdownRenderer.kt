@@ -12,18 +12,43 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.ImageTransformer
+import com.mikepenz.markdown.model.ImageData
+import coil.compose.rememberAsyncImagePainter
 
 @Composable
 fun MarkdownRenderer(
     markdown: String,
+    postId: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    
     // Check if markdown starts with frontmatter - support both --- (YAML) and +++ (TOML)
+    val imageTransformer = object : ImageTransformer {
+        @Composable
+        override fun transform(link: String): ImageData {
+            val transformedLink = if (postId != null && !link.startsWith("http") && !link.startsWith("https")) {
+                val imageFile = File(File(File(context.filesDir, "images"), postId), link)
+                if (imageFile.exists()) {
+                    "file://${imageFile.absolutePath}"
+                } else {
+                    link
+                }
+            } else {
+                link
+            }
+            return ImageData(rememberAsyncImagePainter(transformedLink))
+        }
+    }
+
     val yamlFrontmatterRegex = "^---\\n([\\s\\S]*?)\\n---\\n?".toRegex()
     val tomlFrontmatterRegex = "^\\+\\+\\+\\n([\\s\\S]*?)\\n\\+\\+\\+\\n?".toRegex()
 
@@ -65,6 +90,7 @@ fun MarkdownRenderer(
             // Content section using Markdown library
             Markdown(
                 content = content,
+                imageTransformer = imageTransformer,
                 colors = markdownColor(
                     text = MaterialTheme.colorScheme.onSurface,
                     codeBackground = Color(0xFF2B2B2B)
@@ -97,6 +123,7 @@ fun MarkdownRenderer(
         ) {
             Markdown(
                 content = markdown,
+                imageTransformer = imageTransformer,
                 colors = markdownColor(
                     text = MaterialTheme.colorScheme.onSurface,
                     codeBackground = Color(0xFF2B2B2B)

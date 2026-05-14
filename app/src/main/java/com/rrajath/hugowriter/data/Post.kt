@@ -1,6 +1,7 @@
 package com.rrajath.hugowriter.data
 
 import android.util.Log
+import android.icu.text.Transliterator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -13,18 +14,44 @@ data class Post(
     val updatedAt: Long,
     val publishedAt: Long? = null,
     val isPublished: Boolean = false,
-    val publishedFilename: String? = null  // Track the filename when first published
+    val publishedFilename: String? = null,  // Track the filename when first published
+    val targetPath: String? = null,          // Track which directory this post belongs to
+    val images: List<String> = emptyList(),  // List of image filenames attached to this post
+    val isBundle: Boolean = false            // Track if it's currently a Hugo Page Bundle
 ) {
+    fun shouldBeBundle(): Boolean = images.isNotEmpty()
     fun getWordCount(): Int {
         return content.trim().split("\\s+".toRegex()).size
     }
 
     fun getFileName(): String {
-        return title.trim().lowercase()
-            .replace("\\s*-\\s*".toRegex(), "-")  // collapse spaces around dashes into a single dash
-            .replace(" ", "-")                      // convert remaining spaces to dashes
-            .replace("[^a-z0-9-]".toRegex(), "")   // strip non-alphanumeric/dash characters
-            .plus(".md")
+        return getBaseName().plus(".md")
+    }
+
+    fun getBaseName(): String {
+        // Transliterate non-English characters to Latin (e.g. Cyrillic to Latin)
+        val transliterated = try {
+            transliteratorThreadLocal.get()?.transliterate(title.trim()) ?: title.trim()
+        } catch (e: Exception) {
+            title.trim()
+        }
+
+        return transliterated.lowercase()
+            .replace("\\s*-\\s*".toRegex(), "-")
+            .replace(" ", "-")
+            .replace("[^a-z0-9-]".toRegex(), "")
+            .replace("-+".toRegex(), "-") // Collapse multiple hyphens
+            .removePrefix("-")
+            .removeSuffix("-")
+            .ifEmpty { "post-${id.takeLast(6)}" } // Use last part of ID as fallback
+    }
+
+    fun getBundleFolderName(): String {
+        return getBaseName()
+    }
+
+    fun getBundleContentPath(): String {
+        return "${getBundleFolderName()}/index.md"
     }
 
     /**
@@ -143,6 +170,14 @@ data class Post(
     }
 
     companion object {
+        private val transliteratorThreadLocal = ThreadLocal.withInitial {
+            try {
+                Transliterator.getInstance("Any-Latin; Latin-ASCII")
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun generateId(): String {
             return System.currentTimeMillis().toString()
         }

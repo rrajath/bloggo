@@ -33,8 +33,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _githubBranch = MutableStateFlow("main")
     val githubBranch: StateFlow<String> = _githubBranch.asStateFlow()
 
-    private val _githubTargetDir = MutableStateFlow("content/posts/")
-    val githubTargetDir: StateFlow<String> = _githubTargetDir.asStateFlow()
+    private val _githubTargetDirectories = MutableStateFlow<List<String>>(listOf("content/posts/"))
+    val githubTargetDirectories: StateFlow<List<String>> = _githubTargetDirectories.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -58,7 +58,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _githubRepoOwner.value = config.repositoryOwner
             _githubRepoName.value = config.repositoryName
             _githubBranch.value = config.branch
-            _githubTargetDir.value = config.targetDirectory
+            _githubTargetDirectories.value = config.targetDirectories
         }
     }
 
@@ -90,8 +90,26 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _githubBranch.value = branch
     }
 
-    fun updateGitHubTargetDir(dir: String) {
-        _githubTargetDir.value = dir
+    fun updateGitHubTargetDirectory(index: Int, dir: String) {
+        val currentList = _githubTargetDirectories.value.toMutableList()
+        if (index in currentList.indices) {
+            currentList[index] = dir
+            _githubTargetDirectories.value = currentList
+        }
+    }
+
+    fun addGitHubTargetDirectory() {
+        val currentList = _githubTargetDirectories.value.toMutableList()
+        currentList.add("content/posts/")
+        _githubTargetDirectories.value = currentList
+    }
+
+    fun removeGitHubTargetDirectory(index: Int) {
+        val currentList = _githubTargetDirectories.value.toMutableList()
+        if (index in currentList.indices && currentList.size > 1) {
+            currentList.removeAt(index)
+            _githubTargetDirectories.value = currentList
+        }
     }
 
     fun saveSettings() {
@@ -105,7 +123,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         repositoryOwner = _githubRepoOwner.value,
                         repositoryName = _githubRepoName.value,
                         branch = _githubBranch.value,
-                        targetDirectory = _githubTargetDir.value
+                        targetDirectories = _githubTargetDirectories.value
                     )
                 )
             } finally {

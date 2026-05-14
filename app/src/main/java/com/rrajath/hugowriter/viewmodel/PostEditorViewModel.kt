@@ -9,6 +9,8 @@ import com.rrajath.hugowriter.data.GitHubConfig
 import com.rrajath.hugowriter.data.Post
 import com.rrajath.hugowriter.repository.PostRepository
 import com.rrajath.hugowriter.repository.SettingsRepository
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +30,8 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title.asStateFlow()
 
-    private val _content = MutableStateFlow("")
-    val content: StateFlow<String> = _content.asStateFlow()
+    private val _content = MutableStateFlow(TextFieldValue(""))
+    val content: StateFlow<TextFieldValue> = _content.asStateFlow()
 
     private val _isPreviewMode = MutableStateFlow(false)
     val isPreviewMode: StateFlow<Boolean> = _isPreviewMode.asStateFlow()
@@ -39,6 +41,15 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _publishResult = MutableStateFlow<Result<String>?>(null)
     val publishResult: StateFlow<Result<String>?> = _publishResult.asStateFlow()
+
+    private val _selectedTargetPath = MutableStateFlow("")
+    val selectedTargetPath: StateFlow<String> = _selectedTargetPath.asStateFlow()
+
+    private val _availableTargetPaths = MutableStateFlow<List<String>>(emptyList())
+    val availableTargetPaths: StateFlow<List<String>> = _availableTargetPaths.asStateFlow()
+
+    private val _images = MutableStateFlow<List<String>>(emptyList())
+    val images: StateFlow<List<String>> = _images.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -52,7 +63,8 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                 if (post != null) {
                     _post.value = post
                     _title.value = post.title
-                    _content.value = post.content
+                    _content.value = TextFieldValue(post.content)
+                    _images.value = post.images
                 } else {
                     // Post not found, create new
                     createNewPost()
@@ -61,21 +73,33 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                 // Create new post
                 createNewPost()
             }
+            
+            // Load available paths from settings
+            val config = settingsRepository.gitHubConfig.first()
+            _availableTargetPaths.value = config.targetDirectories
+            
+            // Set initial selected path
+            if (_selectedTargetPath.value.isEmpty()) {
+                _selectedTargetPath.value = _post.value?.targetPath ?: config.getDefaultDirectory()
+            }
         }
     }
 
     private suspend fun createNewPost() {
         val settings = settingsRepository.appSettings.first()
+        val template = AppSettings.generateFrontmatter("New Post", settings.frontmatterTemplate)
+        
         val newPost = Post(
             id = Post.generateId(),
             title = "",
-            content = "",
+            content = template,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
         _post.value = newPost
         _title.value = ""
-        _content.value = ""
+        _content.value = TextFieldValue(template)
+        _images.value = emptyList()
     }
 
     fun onTitleChanged(newTitle: String) {
@@ -85,13 +109,121 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun onContentChanged(newContent: String) {
+    fun onContentChanged(newContent: TextFieldValue) {
         _content.value = newContent
         scheduleAutoSave()
     }
 
     fun togglePreviewMode() {
         _isPreviewMode.value = !_isPreviewMode.value
+    }
+
+    fun onTargetPathSelected(path: String) {
+        _selectedTargetPath.value = path
+        scheduleAutoSave()
+    }
+
+    fun addImage(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val currentPost = _post.value ?: return@launch
+            val contentResolver = getApplication<Application>().contentResolver
+            
+            // Generate a filename for the image
+            val fileName = "image_${System.currentTimeMillis()}.jpg"
+            
+            try {
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val result = postRepository.saveImage(currentPost.id, fileName, inputStream)
+                    result.onSuccess {
+                        val updatedImages = _images.value.toMutableList()
+                        updatedImages.add(fileName)
+                        _images.value = updatedImages
+                        
+                        // Insert markdown into content at cursor
+                        applyFormatting("![Image]($fileName)", "")
+                        
+                        savePost()
+                    }
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+
+    fun applyFormatting(prefix: String, suffix: String) {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        val selectedText = text.substring(selection.start, selection.end)
+        val newText = text.substring(0, selection.start) + 
+                prefix + selectedText + suffix + 
+                text.substring(selection.end)
+        
+        val newSelection = TextRange(
+            selection.start + prefix.length,
+            selection.start + prefix.length + selectedText.length
+        )
+        
+        // If nothing was selected, place cursor after prefix
+        val finalSelection = if (selection.collapsed) {
+            TextRange(selection.start + prefix.length)
+        } else {
+            newSelection
+        }
+
+        _content.value = current.copy(
+            text = newText,
+            selection = finalSelection
+        )
+        scheduleAutoSave()
+    }
+
+    fun applyLink(title: String, url: String) {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        val markdown = "[$title]($url)"
+        
+        val newText = text.substring(0, selection.start) + 
+                markdown + 
+                text.substring(selection.end)
+        
+        _content.value = current.copy(
+            text = newText,
+            selection = TextRange(selection.start + markdown.length)
+        )
+        scheduleAutoSave()
+    }
+
+    fun toggleQuote() {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        // Find the start of the current line
+        var lineStart = selection.start
+        while (lineStart > 0 && text[lineStart - 1] != '\n') {
+            lineStart--
+        }
+        
+        val isAlreadyQuoted = text.substring(lineStart).startsWith("> ")
+        
+        val newText = if (isAlreadyQuoted) {
+            text.substring(0, lineStart) + text.substring(lineStart + 2)
+        } else {
+            text.substring(0, lineStart) + "> " + text.substring(lineStart)
+        }
+        
+        val offset = if (isAlreadyQuoted) -2 else 2
+        
+        _content.value = current.copy(
+            text = newText,
+            selection = TextRange(selection.start + offset, selection.end + offset)
+        )
+        scheduleAutoSave()
     }
 
     private fun scheduleAutoSave() {
@@ -159,7 +291,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             val currentPost = _post.value ?: return
 
             // Don't save if both title and content are empty
-            if (_title.value.isBlank() && _content.value.isBlank()) {
+            if (_title.value.isBlank() && _content.value.text.isBlank()) {
                 return
             }
 
@@ -169,32 +301,35 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             val trimmedTitle = _title.value.trim()
 
             // Check if content has frontmatter
-            val hasFrontmatter = _content.value.startsWith("---") || _content.value.startsWith("+++")
+            val hasFrontmatter = _content.value.text.startsWith("---") || _content.value.text.startsWith("+++")
             val isNewPost = currentPost.content.isEmpty()
 
             val updatedContent = when {
                 // New post without frontmatter - add frontmatter
                 isNewPost && trimmedTitle.isNotBlank() && !hasFrontmatter -> {
-                    AppSettings.generateFrontmatter(trimmedTitle, settings.frontmatterTemplate) + _content.value
+                    AppSettings.generateFrontmatter(trimmedTitle, settings.frontmatterTemplate) + _content.value.text
                 }
                 // Existing post with frontmatter - update the title in frontmatter
                 hasFrontmatter && trimmedTitle != currentPost.title -> {
-                    updateFrontmatterTitle(_content.value, trimmedTitle)
+                    updateFrontmatterTitle(_content.value.text, trimmedTitle)
                 }
                 // Otherwise keep content as is
-                else -> _content.value
+                else -> _content.value.text
             }
 
             val updatedPost = currentPost.copy(
                 title = trimmedTitle,
                 content = updatedContent,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis(),
+                targetPath = _selectedTargetPath.value,
+                images = _images.value,
+                isBundle = _images.value.isNotEmpty()
             )
 
             postRepository.savePost(updatedPost)
             _post.value = updatedPost
             _title.value = trimmedTitle
-            _content.value = updatedContent
+            _content.value = _content.value.copy(text = updatedContent)
         } finally {
             _isSaving.value = false
         }
@@ -224,15 +359,33 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                     return@launch
                 }
 
-                val result = gitHubService.publishPost(currentPost, gitHubConfig)
+                // Load image bytes
+                val imageBytesList = mutableListOf<Pair<String, ByteArray>>()
+                for (imageName in _images.value) {
+                    val file = postRepository.getImageFile(currentPost.id, imageName)
+                    if (file != null) {
+                        imageBytesList.add(imageName to file.readBytes())
+                    }
+                }
+
+                val result = gitHubService.publishPost(
+                    currentPost,
+                    gitHubConfig,
+                    _selectedTargetPath.value,
+                    imageBytesList
+                )
 
                 if (result.isSuccess) {
+                    val isBundle = _images.value.isNotEmpty()
+                    val finalFilename = if (isBundle) currentPost.getBundleContentPath() else currentPost.getFileName()
+                    
                     // Update post as published and track the filename
                     val publishedPost = currentPost.copy(
                         isPublished = true,
                         publishedAt = System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis(),
-                        publishedFilename = currentPost.getFileName()  // Track the published filename
+                        publishedFilename = finalFilename,
+                        isBundle = isBundle
                     )
                     postRepository.savePost(publishedPost)
                     _post.value = publishedPost
