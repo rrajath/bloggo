@@ -14,8 +14,8 @@ android {
         applicationId = "com.rrajath.hugowriter"
         minSdk = 33
         targetSdk = 36
-        versionCode = 29513080
-        versionName = "1.0.3"
+        versionCode = 29646251
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
