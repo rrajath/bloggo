@@ -1,6 +1,7 @@
 package com.rrajath.hugowriter.data
 
 import android.util.Log
+import android.icu.text.Transliterator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,10 +29,21 @@ data class Post(
     }
 
     fun getBaseName(): String {
-        return title.trim().lowercase()
+        // Transliterate non-English characters to Latin (e.g. Cyrillic to Latin)
+        val transliterated = try {
+            transliteratorThreadLocal.get()?.transliterate(title.trim()) ?: title.trim()
+        } catch (e: Exception) {
+            title.trim()
+        }
+
+        return transliterated.lowercase()
             .replace("\\s*-\\s*".toRegex(), "-")
             .replace(" ", "-")
             .replace("[^a-z0-9-]".toRegex(), "")
+            .replace("-+".toRegex(), "-") // Collapse multiple hyphens
+            .removePrefix("-")
+            .removeSuffix("-")
+            .ifEmpty { "post-${id.takeLast(6)}" } // Use last part of ID as fallback
     }
 
     fun getBundleFolderName(): String {
@@ -158,6 +170,14 @@ data class Post(
     }
 
     companion object {
+        private val transliteratorThreadLocal = ThreadLocal.withInitial {
+            try {
+                Transliterator.getInstance("Any-Latin; Latin-ASCII")
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun generateId(): String {
             return System.currentTimeMillis().toString()
         }
