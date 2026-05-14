@@ -13,7 +13,8 @@ data class Post(
     val updatedAt: Long,
     val publishedAt: Long? = null,
     val isPublished: Boolean = false,
-    val publishedFilename: String? = null  // Track the filename when first published
+    val publishedFilename: String? = null,  // Track the filename when first published
+    val targetPath: String? = null           // Track which directory this post belongs to
 ) {
     fun getWordCount(): Int {
         return content.trim().split("\\s+".toRegex()).size

@@ -39,6 +39,10 @@ fun PostEditorScreen(
     val isPublishing by viewModel.isPublishing.collectAsState()
     val publishResult by viewModel.publishResult.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
+    val selectedTargetPath by viewModel.selectedTargetPath.collectAsState()
+    val availableTargetPaths by viewModel.availableTargetPaths.collectAsState()
+    
+    var isPathMenuExpanded by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -207,6 +211,66 @@ fun PostEditorScreen(
                         capitalization = KeyboardCapitalization.Sentences
                     )
                 )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Target Path Selection
+            if (availableTargetPaths.isNotEmpty()) {
+                Text(
+                    text = "Publishing Path",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedCard(
+                        onClick = { isPathMenuExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Directory",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(text = selectedTargetPath)
+                            }
+                        }
+                    }
+                    
+                    DropdownMenu(
+                        expanded = isPathMenuExpanded,
+                        onDismissRequest = { isPathMenuExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        availableTargetPaths.forEach { path ->
+                            DropdownMenuItem(
+                                text = { Text(path) },
+                                onClick = {
+                                    viewModel.onTargetPathSelected(path)
+                                    isPathMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                if (title.isNotBlank()) {
+                    val finalPath = "${selectedTargetPath.trimEnd('/')}/${viewModel.post.value?.getFileName() ?: ""}".trimStart('/')
+                    Text(
+                        text = "Final path: $finalPath",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

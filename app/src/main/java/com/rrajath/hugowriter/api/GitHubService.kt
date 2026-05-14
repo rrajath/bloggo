@@ -49,7 +49,7 @@ class GitHubService {
         }
     }
 
-    suspend fun publishPost(post: Post, config: GitHubConfig): Result<String> {
+    suspend fun publishPost(post: Post, config: GitHubConfig, targetPath: String? = null): Result<String> {
         return try {
             if (!config.isValid()) {
                 return Result.failure(IllegalArgumentException("GitHub configuration is invalid"))
@@ -57,8 +57,9 @@ class GitHubService {
 
             initializeRetrofit(config.personalAccessToken)
 
+            val directory = targetPath ?: post.targetPath ?: config.getDefaultDirectory()
             val newFilename = post.getFileName()
-            val newFilePath = "${config.targetDirectory}$newFilename"
+            val newFilePath = "${directory.trimEnd('/')}/$newFilename".trimStart('/')
             val content = post.content
             val encodedContent = Base64.encodeToString(
                 content.toByteArray(Charsets.UTF_8),
@@ -67,7 +68,8 @@ class GitHubService {
 
             // If the post was previously published with a different filename, delete the old file
             if (post.publishedFilename != null && post.publishedFilename != newFilename) {
-                val oldFilePath = "${config.targetDirectory}${post.publishedFilename}"
+                val oldDirectory = post.targetPath ?: config.getDefaultDirectory()
+                val oldFilePath = "${oldDirectory.trimEnd('/')}/${post.publishedFilename}".trimStart('/')
                 try {
                     val oldFileResponse = api?.getFileContent(
                         owner = config.repositoryOwner,
@@ -151,7 +153,8 @@ class GitHubService {
 
             // Use publishedFilename if available, otherwise use current filename
             val filename = post.publishedFilename ?: post.getFileName()
-            val filePath = "${config.targetDirectory}$filename"
+            val directory = post.targetPath ?: config.getDefaultDirectory()
+            val filePath = "${directory.trimEnd('/')}/$filename".trimStart('/')
 
             // Get the file's SHA first
             val fileResponse = api?.getFileContent(
@@ -199,116 +202,119 @@ class GitHubService {
 
             initializeRetrofit(config.personalAccessToken)
 
-            // List all files in the target directory
-            val listResponse = api?.listFiles(
-                owner = config.repositoryOwner,
-                repo = config.repositoryName,
-                path = config.targetDirectory.trimEnd('/'),
-                ref = config.branch
-            )
+            val allPosts = mutableListOf<Post>()
+            
+            for (targetDirectory in config.targetDirectories) {
+                // List all files in the target directory
+                val listResponse = api?.listFiles(
+                    owner = config.repositoryOwner,
+                    repo = config.repositoryName,
+                    path = targetDirectory.trimEnd('/'),
+                    ref = config.branch
+                )
 
-            if (listResponse?.isSuccessful != true || listResponse.body() == null) {
-                return Result.failure(Exception("Failed to list files: ${listResponse?.code()}"))
-            }
+                if (listResponse?.isSuccessful != true || listResponse.body() == null) {
+                    continue // Skip directories that don't exist or fail
+                }
 
-            val files = listResponse.body()!!
-                .filter { it.type == "file" && it.name.endsWith(".md") }
+                val files = listResponse.body()!!
+                    .filter { it.type == "file" && it.name.endsWith(".md") }
 
-            val posts = mutableListOf<Post>()
+                // Fetch content for each file
+                for (file in files) {
+                    try {
+                        val contentResponse = api?.getFileContent(
+                            owner = config.repositoryOwner,
+                            repo = config.repositoryName,
+                            path = file.path,
+                            ref = config.branch
+                        )
 
-            // Fetch content for each file
-            for (file in files) {
-                try {
-                    val contentResponse = api?.getFileContent(
-                        owner = config.repositoryOwner,
-                        repo = config.repositoryName,
-                        path = file.path,
-                        ref = config.branch
-                    )
+                        if (contentResponse?.isSuccessful == true && contentResponse.body() != null) {
+                            val content = contentResponse.body()!!.content
+                            if (content != null) {
+                                // Decode base64 content
+                                val decodedContent = String(
+                                    Base64.decode(content.replace("\n", ""), Base64.DEFAULT),
+                                    Charsets.UTF_8
+                                )
 
-                    if (contentResponse?.isSuccessful == true && contentResponse.body() != null) {
-                        val content = contentResponse.body()!!.content
-                        if (content != null) {
-                            // Decode base64 content
-                            val decodedContent = String(
-                                Base64.decode(content.replace("\n", ""), Base64.DEFAULT),
-                                Charsets.UTF_8
-                            )
+                                // Parse frontmatter to extract title and date - support both --- (YAML) and +++ (TOML)
+                                val yamlFrontmatterRegex = "^---\\n([\\s\\S]*?)\\n---".toRegex()
+                                val tomlFrontmatterRegex = "^\\+\\+\\+\\n([\\s\\S]*?)\\n\\+\\+\\+".toRegex()
 
-                            // Parse frontmatter to extract title and date - support both --- (YAML) and +++ (TOML)
-                            val yamlFrontmatterRegex = "^---\\n([\\s\\S]*?)\\n---".toRegex()
-                            val tomlFrontmatterRegex = "^\\+\\+\\+\\n([\\s\\S]*?)\\n\\+\\+\\+".toRegex()
+                                val yamlMatch = yamlFrontmatterRegex.find(decodedContent)
+                                val tomlMatch = tomlFrontmatterRegex.find(decodedContent)
+                                val frontmatterMatch = yamlMatch ?: tomlMatch
 
-                            val yamlMatch = yamlFrontmatterRegex.find(decodedContent)
-                            val tomlMatch = tomlFrontmatterRegex.find(decodedContent)
-                            val frontmatterMatch = yamlMatch ?: tomlMatch
+                                var title = file.name
+                                    .removeSuffix(".md")
+                                    .replace("-", " ")
+                                    .split(" ")
+                                    .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
 
-                            var title = file.name
-                                .removeSuffix(".md")
-                                .replace("-", " ")
-                                .split(" ")
-                                .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+                                var postDate = System.currentTimeMillis()
 
-                            var postDate = System.currentTimeMillis()
+                                if (frontmatterMatch != null) {
+                                    val frontmatter = frontmatterMatch.groupValues[1]
 
-                            if (frontmatterMatch != null) {
-                                val frontmatter = frontmatterMatch.groupValues[1]
+                                    // Extract title from frontmatter (support both YAML "title:" and TOML "title =")
+                                    val titleRegex = "title\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
+                                    val titleMatch = titleRegex.find(frontmatter)
+                                    if (titleMatch != null) {
+                                        title = titleMatch.groupValues[1].trim()
+                                    }
 
-                                // Extract title from frontmatter (support both YAML "title:" and TOML "title =")
-                                val titleRegex = "title\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
-                                val titleMatch = titleRegex.find(frontmatter)
-                                if (titleMatch != null) {
-                                    title = titleMatch.groupValues[1].trim()
-                                }
+                                    // Extract date from frontmatter (support both YAML "date:" and TOML "date =")
+                                    val dateRegex = "date\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
+                                    var dateMatch = dateRegex.find(frontmatter)
 
-                                // Extract date from frontmatter (support both YAML "date:" and TOML "date =")
-                                val dateRegex = "date\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
-                                var dateMatch = dateRegex.find(frontmatter)
+                                    // If date field not found, try lastmod as fallback
+                                    if (dateMatch == null) {
+                                        val lastmodRegex = "lastmod\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
+                                        dateMatch = lastmodRegex.find(frontmatter)
+                                    }
 
-                                // If date field not found, try lastmod as fallback
-                                if (dateMatch == null) {
-                                    val lastmodRegex = "lastmod\\s*[=:]\\s*[\"']?([^\"'\\n]+)[\"']?".toRegex()
-                                    dateMatch = lastmodRegex.find(frontmatter)
-                                }
-
-                                if (dateMatch != null) {
-                                    val dateString = dateMatch.groupValues[1].trim()
-                                    try {
-                                        // Parse ISO date format
-                                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US)
-                                        postDate = sdf.parse(dateString)?.time ?: System.currentTimeMillis()
-                                    } catch (e: Exception) {
+                                    if (dateMatch != null) {
+                                        val dateString = dateMatch.groupValues[1].trim()
                                         try {
-                                            // Try simple date format
-                                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                            // Parse ISO date format
+                                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US)
                                             postDate = sdf.parse(dateString)?.time ?: System.currentTimeMillis()
                                         } catch (e: Exception) {
-                                            // Use current time if parsing fails
-                                            postDate = System.currentTimeMillis()
+                                            try {
+                                                // Try simple date format
+                                                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                                postDate = sdf.parse(dateString)?.time ?: System.currentTimeMillis()
+                                            } catch (e: Exception) {
+                                                // Use current time if parsing fails
+                                                postDate = System.currentTimeMillis()
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            val post = Post(
-                                id = Post.generateId(),
-                                title = title,
-                                content = decodedContent,
-                                createdAt = postDate,
-                                updatedAt = postDate,
-                                publishedAt = postDate,
-                                isPublished = true
-                            )
-                            posts.add(post)
+                                val post = Post(
+                                    id = Post.generateId(),
+                                    title = title,
+                                    content = decodedContent,
+                                    createdAt = postDate,
+                                    updatedAt = postDate,
+                                    publishedAt = postDate,
+                                    isPublished = true,
+                                    targetPath = targetDirectory
+                                )
+                                allPosts.add(post)
+                            }
                         }
+                    } catch (e: Exception) {
+                        // Skip this file if there's an error
+                        continue
                     }
-                } catch (e: Exception) {
-                    // Skip this file if there's an error
-                    continue
                 }
             }
 
-            Result.success(posts)
+            Result.success(allPosts)
         } catch (e: Exception) {
             Result.failure(e)
         }

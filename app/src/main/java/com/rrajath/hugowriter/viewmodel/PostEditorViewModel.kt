@@ -40,6 +40,12 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
     private val _publishResult = MutableStateFlow<Result<String>?>(null)
     val publishResult: StateFlow<Result<String>?> = _publishResult.asStateFlow()
 
+    private val _selectedTargetPath = MutableStateFlow("")
+    val selectedTargetPath: StateFlow<String> = _selectedTargetPath.asStateFlow()
+
+    private val _availableTargetPaths = MutableStateFlow<List<String>>(emptyList())
+    val availableTargetPaths: StateFlow<List<String>> = _availableTargetPaths.asStateFlow()
+
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
@@ -60,6 +66,15 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             } else {
                 // Create new post
                 createNewPost()
+            }
+            
+            // Load available paths from settings
+            val config = settingsRepository.gitHubConfig.first()
+            _availableTargetPaths.value = config.targetDirectories
+            
+            // Set initial selected path
+            if (_selectedTargetPath.value.isEmpty()) {
+                _selectedTargetPath.value = _post.value?.targetPath ?: config.getDefaultDirectory()
             }
         }
     }
@@ -92,6 +107,11 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
 
     fun togglePreviewMode() {
         _isPreviewMode.value = !_isPreviewMode.value
+    }
+
+    fun onTargetPathSelected(path: String) {
+        _selectedTargetPath.value = path
+        scheduleAutoSave()
     }
 
     private fun scheduleAutoSave() {
@@ -188,7 +208,8 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             val updatedPost = currentPost.copy(
                 title = trimmedTitle,
                 content = updatedContent,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis(),
+                targetPath = _selectedTargetPath.value
             )
 
             postRepository.savePost(updatedPost)
@@ -224,7 +245,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                     return@launch
                 }
 
-                val result = gitHubService.publishPost(currentPost, gitHubConfig)
+                val result = gitHubService.publishPost(currentPost, gitHubConfig, _selectedTargetPath.value)
 
                 if (result.isSuccess) {
                     // Update post as published and track the filename

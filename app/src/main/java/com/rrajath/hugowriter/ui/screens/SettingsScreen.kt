@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,7 @@ fun SettingsScreen(
     val githubRepoOwner by viewModel.githubRepoOwner.collectAsState()
     val githubRepoName by viewModel.githubRepoName.collectAsState()
     val githubBranch by viewModel.githubBranch.collectAsState()
-    val githubTargetDir by viewModel.githubTargetDir.collectAsState()
+    val githubTargetDirectories by viewModel.githubTargetDirectories.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
 
     val scope = rememberCoroutineScope()
@@ -232,25 +234,42 @@ fun SettingsScreen(
                 singleLine = true
             )
 
-            OutlinedTextField(
-                value = githubTargetDir,
-                onValueChange = { viewModel.updateGitHubTargetDir(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bringIntoViewRequester(targetDirBringIntoViewRequester)
-                    .onFocusEvent { focusState ->
-                        if (focusState.isFocused) {
-                            scope.launch {
-                                delay(300)
-                                targetDirBringIntoViewRequester.bringIntoView()
-                            }
-                        }
-                    },
-                label = { Text("Target Directory") },
-                placeholder = { Text("content/posts/") },
-                singleLine = true,
-                supportingText = { Text("Directory where posts will be saved") }
+            Text(
+                text = "Target Directories",
+                style = MaterialTheme.typography.titleMedium
             )
+            
+            githubTargetDirectories.forEachIndexed { index, directory ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = directory,
+                        onValueChange = { viewModel.updateGitHubTargetDirectory(index, it) },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Path ${index + 1}") },
+                        placeholder = { Text("content/posts/") },
+                        singleLine = true
+                    )
+                    
+                    if (githubTargetDirectories.size > 1) {
+                        IconButton(onClick = { viewModel.removeGitHubTargetDirectory(index) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Remove Path")
+                        }
+                    }
+                }
+            }
+            
+            TextButton(
+                onClick = { viewModel.addGitHubTargetDirectory() },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add Path")
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
