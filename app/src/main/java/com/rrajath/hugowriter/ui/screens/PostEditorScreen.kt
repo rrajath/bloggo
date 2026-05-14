@@ -23,8 +23,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rrajath.hugowriter.ui.components.FormattingToolbar
 import com.rrajath.hugowriter.ui.components.MarkdownRenderer
+import com.rrajath.hugowriter.ui.components.MarkdownVisualTransformation
 import com.rrajath.hugowriter.viewmodel.PostEditorViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -53,6 +60,10 @@ fun PostEditorScreen(
     val titleBringIntoViewRequester = remember { BringIntoViewRequester() }
     val contentBringIntoViewRequester = remember { BringIntoViewRequester() }
     val context = LocalContext.current
+    
+    var showLinkDialog by remember { mutableStateOf(false) }
+    var linkTitle by remember { mutableStateOf("") }
+    var linkUrl by remember { mutableStateOf("") }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -140,17 +151,54 @@ fun PostEditorScreen(
                         }
                     }
                     
-                    IconButton(onClick = { imagePickerLauncher.launch("image/*") }) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add Image"
-                        )
-                    }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
+        if (showLinkDialog) {
+            AlertDialog(
+                onDismissRequest = { showLinkDialog = false },
+                title = { Text("Insert Link") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = linkTitle,
+                            onValueChange = { linkTitle = it },
+                            label = { Text("Title") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = linkUrl,
+                            onValueChange = { linkUrl = it },
+                            label = { Text("URL") },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("https://...") }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.applyLink(linkTitle, linkUrl)
+                            showLinkDialog = false
+                            linkTitle = ""
+                            linkUrl = ""
+                        },
+                        enabled = linkUrl.isNotBlank()
+                    ) {
+                        Text("Insert")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLinkDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -195,9 +243,9 @@ fun PostEditorScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        if (content.isNotBlank()) {
+                        if (content.text.isNotBlank()) {
                             MarkdownRenderer(
-                                markdown = content,
+                                markdown = content.text,
                                 postId = post?.id
                             )
                         } else {
@@ -229,7 +277,32 @@ fun PostEditorScreen(
                     placeholder = { Text("Write your post content here...") },
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences
+                    ),
+                    visualTransformation = MarkdownVisualTransformation(
+                        primaryColor = MaterialTheme.colorScheme.primary,
+                        secondaryColor = MaterialTheme.colorScheme.secondary
                     )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Formatting Toolbar
+                FormattingToolbar(
+                    onBoldClick = { viewModel.applyFormatting("**", "**") },
+                    onItalicClick = { viewModel.applyFormatting("*", "*") },
+                    onLinkClick = {
+                        val selection = content.selection
+                        linkTitle = if (!selection.collapsed) {
+                            content.text.substring(selection.start, selection.end)
+                        } else {
+                            ""
+                        }
+                        showLinkDialog = true
+                    },
+                    onCodeClick = { viewModel.applyFormatting("`", "`") },
+                    onQuoteClick = { viewModel.toggleQuote() },
+                    onImageClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
@@ -304,7 +377,7 @@ fun PostEditorScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving && title.isNotBlank() && content.isNotBlank(),
+                enabled = !isSaving && title.isNotBlank() && content.text.isNotBlank(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
@@ -325,7 +398,7 @@ fun PostEditorScreen(
             Button(
                 onClick = { viewModel.publishPost() },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isPublishing && title.isNotBlank() && content.isNotBlank()
+                enabled = !isPublishing && title.isNotBlank() && content.text.isNotBlank()
             ) {
                 if (isPublishing) {
                     CircularProgressIndicator(

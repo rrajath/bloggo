@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -91,6 +92,7 @@ dependencies {
 
     // Markdown
     implementation(libs.multiplatform.markdown.renderer.m3)
+    implementation(libs.richeditor.compose)
     implementation(libs.coil.compose)
 
     // Kotlin Serialization

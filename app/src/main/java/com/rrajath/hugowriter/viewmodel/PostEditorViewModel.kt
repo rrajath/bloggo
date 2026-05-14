@@ -9,6 +9,8 @@ import com.rrajath.hugowriter.data.GitHubConfig
 import com.rrajath.hugowriter.data.Post
 import com.rrajath.hugowriter.repository.PostRepository
 import com.rrajath.hugowriter.repository.SettingsRepository
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +30,8 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title.asStateFlow()
 
-    private val _content = MutableStateFlow("")
-    val content: StateFlow<String> = _content.asStateFlow()
+    private val _content = MutableStateFlow(TextFieldValue(""))
+    val content: StateFlow<TextFieldValue> = _content.asStateFlow()
 
     private val _isPreviewMode = MutableStateFlow(false)
     val isPreviewMode: StateFlow<Boolean> = _isPreviewMode.asStateFlow()
@@ -61,7 +63,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                 if (post != null) {
                     _post.value = post
                     _title.value = post.title
-                    _content.value = post.content
+                    _content.value = TextFieldValue(post.content)
                     _images.value = post.images
                 } else {
                     // Post not found, create new
@@ -85,16 +87,18 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
 
     private suspend fun createNewPost() {
         val settings = settingsRepository.appSettings.first()
+        val template = AppSettings.generateFrontmatter("New Post", settings.frontmatterTemplate)
+        
         val newPost = Post(
             id = Post.generateId(),
             title = "",
-            content = "",
+            content = template,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis()
         )
         _post.value = newPost
         _title.value = ""
-        _content.value = ""
+        _content.value = TextFieldValue(template)
         _images.value = emptyList()
     }
 
@@ -105,7 +109,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun onContentChanged(newContent: String) {
+    fun onContentChanged(newContent: TextFieldValue) {
         _content.value = newContent
         scheduleAutoSave()
     }
@@ -135,8 +139,8 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
                         updatedImages.add(fileName)
                         _images.value = updatedImages
                         
-                        // Insert markdown into content
-                        insertImageMarkdown(fileName)
+                        // Insert markdown into content at cursor
+                        applyFormatting("![Image]($fileName)", "")
                         
                         savePost()
                     }
@@ -147,10 +151,78 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private fun insertImageMarkdown(fileName: String) {
-        val currentContent = _content.value
-        val markdown = "\n\n![Image]($fileName)\n\n"
-        _content.value = currentContent + markdown
+    fun applyFormatting(prefix: String, suffix: String) {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        val selectedText = text.substring(selection.start, selection.end)
+        val newText = text.substring(0, selection.start) + 
+                prefix + selectedText + suffix + 
+                text.substring(selection.end)
+        
+        val newSelection = TextRange(
+            selection.start + prefix.length,
+            selection.start + prefix.length + selectedText.length
+        )
+        
+        // If nothing was selected, place cursor after prefix
+        val finalSelection = if (selection.collapsed) {
+            TextRange(selection.start + prefix.length)
+        } else {
+            newSelection
+        }
+
+        _content.value = current.copy(
+            text = newText,
+            selection = finalSelection
+        )
+        scheduleAutoSave()
+    }
+
+    fun applyLink(title: String, url: String) {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        val markdown = "[$title]($url)"
+        
+        val newText = text.substring(0, selection.start) + 
+                markdown + 
+                text.substring(selection.end)
+        
+        _content.value = current.copy(
+            text = newText,
+            selection = TextRange(selection.start + markdown.length)
+        )
+        scheduleAutoSave()
+    }
+
+    fun toggleQuote() {
+        val current = _content.value
+        val selection = current.selection
+        val text = current.text
+        
+        // Find the start of the current line
+        var lineStart = selection.start
+        while (lineStart > 0 && text[lineStart - 1] != '\n') {
+            lineStart--
+        }
+        
+        val isAlreadyQuoted = text.substring(lineStart).startsWith("> ")
+        
+        val newText = if (isAlreadyQuoted) {
+            text.substring(0, lineStart) + text.substring(lineStart + 2)
+        } else {
+            text.substring(0, lineStart) + "> " + text.substring(lineStart)
+        }
+        
+        val offset = if (isAlreadyQuoted) -2 else 2
+        
+        _content.value = current.copy(
+            text = newText,
+            selection = TextRange(selection.start + offset, selection.end + offset)
+        )
         scheduleAutoSave()
     }
 
@@ -219,7 +291,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             val currentPost = _post.value ?: return
 
             // Don't save if both title and content are empty
-            if (_title.value.isBlank() && _content.value.isBlank()) {
+            if (_title.value.isBlank() && _content.value.text.isBlank()) {
                 return
             }
 
@@ -229,20 +301,20 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             val trimmedTitle = _title.value.trim()
 
             // Check if content has frontmatter
-            val hasFrontmatter = _content.value.startsWith("---") || _content.value.startsWith("+++")
+            val hasFrontmatter = _content.value.text.startsWith("---") || _content.value.text.startsWith("+++")
             val isNewPost = currentPost.content.isEmpty()
 
             val updatedContent = when {
                 // New post without frontmatter - add frontmatter
                 isNewPost && trimmedTitle.isNotBlank() && !hasFrontmatter -> {
-                    AppSettings.generateFrontmatter(trimmedTitle, settings.frontmatterTemplate) + _content.value
+                    AppSettings.generateFrontmatter(trimmedTitle, settings.frontmatterTemplate) + _content.value.text
                 }
                 // Existing post with frontmatter - update the title in frontmatter
                 hasFrontmatter && trimmedTitle != currentPost.title -> {
-                    updateFrontmatterTitle(_content.value, trimmedTitle)
+                    updateFrontmatterTitle(_content.value.text, trimmedTitle)
                 }
                 // Otherwise keep content as is
-                else -> _content.value
+                else -> _content.value.text
             }
 
             val updatedPost = currentPost.copy(
@@ -257,7 +329,7 @@ class PostEditorViewModel(application: Application) : AndroidViewModel(applicati
             postRepository.savePost(updatedPost)
             _post.value = updatedPost
             _title.value = trimmedTitle
-            _content.value = updatedContent
+            _content.value = _content.value.copy(text = updatedContent)
         } finally {
             _isSaving.value = false
         }

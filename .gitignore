@@ -14,6 +14,7 @@
 .cxx
 local.properties
 .idea
+.kotlin
 
 # Keystore files - NEVER commit these!
 *.jks
