@@ -2,6 +2,7 @@ package com.rrajath.bloggo.ui.editor
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rrajath.bloggo.data.GitHubRepository
 import com.rrajath.bloggo.data.PostRepository
 import com.rrajath.bloggo.data.SettingsRepository
 import com.rrajath.bloggo.domain.PostDraft
@@ -28,10 +29,14 @@ import javax.inject.Inject
 class EditorViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val settingsRepository: SettingsRepository,
+    private val gitHubRepository: GitHubRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
+
+    private val _publishState = MutableStateFlow(PublishDialogState())
+    val publishState: StateFlow<PublishDialogState> = _publishState.asStateFlow()
 
     private val _events = MutableSharedFlow<EditorEvent>()
     val events: SharedFlow<EditorEvent> = _events.asSharedFlow()
@@ -138,6 +143,73 @@ class EditorViewModel @Inject constructor(
     fun canPublish(): Boolean = _uiState.value.title.isNotBlank()
 
     fun getPostForPublish(): PostDraft = buildPostDraft(_uiState.value)
+
+    fun startPublish() {
+        val current = _uiState.value
+        if (!canPublish()) return
+        val post = getPostForPublish()
+        _publishState.value = PublishDialogState(post = post)
+        if (current.draft) {
+            _publishState.value = _publishState.value.copy(showDraftFlip = true)
+        } else {
+            _publishState.value = _publishState.value.copy(showPushConfirm = true)
+        }
+    }
+
+    fun keepDraft() {
+        _publishState.value = PublishDialogState()
+    }
+
+    fun confirmDraftFlip() {
+        setDraft(false)
+        _publishState.value = _publishState.value.copy(
+            showDraftFlip = false,
+            showPushConfirm = true,
+            post = getPostForPublish(),
+        )
+    }
+
+    fun cancelPublish() {
+        _publishState.value = PublishDialogState()
+    }
+
+    fun confirmPush() {
+        val post = _publishState.value.post ?: return
+        if (_publishState.value.isPushing) return
+
+        _publishState.value = _publishState.value.copy(isPushing = true, error = null)
+
+        viewModelScope.launch {
+            val result = gitHubRepository.publish(post)
+            if (result.post != null) {
+                postRepository.savePost(result.post)
+                postRepository.deleteAutosave(result.post.localId)
+                _publishState.value = PublishDialogState()
+                _events.tryEmit(EditorEvent.NavigateBack("Published to GitHub."))
+            } else {
+                _publishState.value = _publishState.value.copy(
+                    isPushing = false,
+                    error = result.error ?: "Unknown error",
+                )
+            }
+        }
+    }
+
+    fun getPushConfirmData(): PushConfirmData? {
+        val post = _publishState.value.post ?: return null
+        val settings = settingsRepository.settings
+        var contentPath = "content/posts"
+        viewModelScope.launch {
+            contentPath = settings.first().contentPath
+        }
+        return buildPushConfirmData(post, contentPath)
+    }
+
+    suspend fun getPushConfirmDataAsync(): PushConfirmData? {
+        val post = _publishState.value.post ?: return null
+        val contentPath = settingsRepository.settings.first().contentPath
+        return buildPushConfirmData(post, contentPath)
+    }
 
     fun discardChanges() {
         viewModelScope.launch {

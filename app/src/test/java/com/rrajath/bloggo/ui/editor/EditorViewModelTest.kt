@@ -2,6 +2,7 @@ package com.rrajath.bloggo.ui.editor
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import com.rrajath.bloggo.data.GitHubRepository
 import com.rrajath.bloggo.data.PostRepository
 import com.rrajath.bloggo.data.Settings
 import com.rrajath.bloggo.data.SettingsRepository
@@ -27,6 +28,7 @@ class EditorViewModelTest {
 
     private val postRepository = mockk<PostRepository>(relaxed = true)
     private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
+    private val gitHubRepository = mockk<GitHubRepository>(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -70,7 +72,7 @@ class EditorViewModelTest {
     @Test
     fun loadPost_newPost_seedsFrontMatter() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -89,7 +91,7 @@ class EditorViewModelTest {
     @Test
     fun loadPost_newPost_dateTokenReplaced() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -103,7 +105,7 @@ class EditorViewModelTest {
     @Test
     fun loadPost_existingPost_loadsAllFields() = runTest {
         coEvery { postRepository.getPost("post-1") } returns existingPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-1")
         advanceUntilIdle()
 
@@ -123,7 +125,7 @@ class EditorViewModelTest {
     @Test
     fun loadPost_syncedPost_slugIsFrozen() = runTest {
         coEvery { postRepository.getPost("post-2") } returns syncedPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-2")
         advanceUntilIdle()
 
@@ -137,7 +139,7 @@ class EditorViewModelTest {
     @Test
     fun loadPost_localOnly_slugNotFrozen() = runTest {
         coEvery { postRepository.getPost("post-1") } returns existingPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-1")
         advanceUntilIdle()
 
@@ -151,7 +153,7 @@ class EditorViewModelTest {
     @Test
     fun onTitleChange_setsDirty() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -167,7 +169,7 @@ class EditorViewModelTest {
     @Test
     fun onTitleFocusLost_newPostDerivesSlug() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -183,7 +185,7 @@ class EditorViewModelTest {
     @Test
     fun onTitleFocusLost_syncedPostDoesNotDerive() = runTest {
         coEvery { postRepository.getPost("post-2") } returns syncedPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-2")
         advanceUntilIdle()
 
@@ -199,7 +201,7 @@ class EditorViewModelTest {
     @Test
     fun onSlugChange_freezesSlug() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -215,7 +217,7 @@ class EditorViewModelTest {
     @Test
     fun onBodyChange_setsDirtyAndWordCount() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -232,7 +234,7 @@ class EditorViewModelTest {
     @Test
     fun wordCount_emptyBody() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -246,7 +248,7 @@ class EditorViewModelTest {
     @Test
     fun wordCount_whitespaceOnly() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -261,7 +263,7 @@ class EditorViewModelTest {
     @Test
     fun toggleFrontMatter() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -275,7 +277,7 @@ class EditorViewModelTest {
     @Test
     fun togglePreview() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -287,7 +289,7 @@ class EditorViewModelTest {
     @Test
     fun setDraft_changesDraftFlag() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -300,7 +302,7 @@ class EditorViewModelTest {
     @Test
     fun canPublish_falseForEmptyTitle() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -310,7 +312,7 @@ class EditorViewModelTest {
     @Test
     fun canPublish_trueForNonEmptyTitle() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -321,7 +323,7 @@ class EditorViewModelTest {
     @Test
     fun saveLocal_savesPostToRepository() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -336,7 +338,7 @@ class EditorViewModelTest {
     @Test
     fun saveLocal_clearsDirty() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -351,7 +353,7 @@ class EditorViewModelTest {
     @Test
     fun saveLocal_deletesAutosave() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -365,7 +367,7 @@ class EditorViewModelTest {
     @Test
     fun getPostForPublish_returnsPostWithCurrentFields() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -382,7 +384,7 @@ class EditorViewModelTest {
     @Test
     fun getPostForPublish_emptySlugDerivesFromTitle() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -394,7 +396,7 @@ class EditorViewModelTest {
     @Test
     fun displaySlug_emptySlugShowsDerived() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -409,7 +411,7 @@ class EditorViewModelTest {
     @Test
     fun displaySlug_nonEmptySlugShowsActual() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -425,7 +427,7 @@ class EditorViewModelTest {
     @Test
     fun discardChanges_deletesAutosaveAndNavigatesBack() = runTest {
         coEvery { postRepository.getPost("post-1") } returns existingPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-1")
         advanceUntilIdle()
 
@@ -438,7 +440,7 @@ class EditorViewModelTest {
     @Test
     fun onPublishSuccess_savesPostAndClearsAutosave() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -453,7 +455,7 @@ class EditorViewModelTest {
     @Test
     fun autosave_savesWhenDirty() = runTest {
         coEvery { postRepository.getPost(any()) } returns null
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost(null)
         advanceUntilIdle()
 
@@ -468,7 +470,7 @@ class EditorViewModelTest {
     @Test
     fun autosave_doesNotSaveWhenNotDirty() = runTest {
         coEvery { postRepository.getPost("post-1") } returns existingPost
-        val vm = EditorViewModel(postRepository, settingsRepository)
+        val vm = EditorViewModel(postRepository, settingsRepository, gitHubRepository)
         vm.loadPost("post-1")
         advanceUntilIdle()
 

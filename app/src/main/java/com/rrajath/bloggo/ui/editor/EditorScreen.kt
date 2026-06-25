@@ -65,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rrajath.bloggo.domain.slugify
 import io.noties.markwon.Markwon
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +77,7 @@ fun EditorScreen(
     viewModel: EditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val publishState by viewModel.publishState.collectAsStateWithLifecycle()
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
@@ -142,7 +144,7 @@ fun EditorScreen(
                     onSaveLocal = { viewModel.saveLocal() },
                     onPublish = {
                         if (viewModel.canPublish()) {
-                            onPublish(viewModel.getPostForPublish())
+                            viewModel.startPublish()
                         }
                     },
                     onBold = {
@@ -236,6 +238,29 @@ fun EditorScreen(
                 viewModel.discardChanges()
             },
         )
+    }
+
+    if (publishState.showDraftFlip) {
+        DraftFlipDialog(
+            onKeepDraft = { viewModel.keepDraft() },
+            onFlipAndContinue = { viewModel.confirmDraftFlip() },
+        )
+    }
+
+    if (publishState.showPushConfirm) {
+        var pushData by remember { mutableStateOf<PushConfirmData?>(null) }
+        LaunchedEffect(publishState.showPushConfirm) {
+            pushData = viewModel.getPushConfirmDataAsync()
+        }
+        pushData?.let { data ->
+            PushConfirmSheet(
+                data = data,
+                isPushing = publishState.isPushing,
+                error = publishState.error,
+                onCancel = { viewModel.cancelPublish() },
+                onPush = { viewModel.confirmPush() },
+            )
+        }
     }
 }
 
