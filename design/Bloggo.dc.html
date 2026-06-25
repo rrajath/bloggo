@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Roboto',system-ui,sans-serif;}
+  textarea,input,button{font-family:inherit;}
+  textarea:focus,input:focus{outline:none;}
+  button{cursor:pointer;border:none;background:none;}
+  .bg-scroll::-webkit-scrollbar{width:0px;height:0px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+  @keyframes sheetUp{from{transform:translateY(16px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  @keyframes barIndet{0%{left:-40%;}100%{left:100%;}}
+  :root{
+    --canvas:#E7E5EC; --canvasDot:rgba(0,0,0,.05);
+    --surface:#FCFBFE; --surfaceLow:#F6F3F9; --surfaceCont:#F0EDF3; --surfaceHigh:#EAE7EE; --surfaceHighest:#E4E1E9;
+    --onSurface:#1B1B1F; --onSurfaceVar:#46464F; --outline:#777680; --outlineVar:#C7C5D0;
+    --scrim:rgba(0,0,0,.32); --shadow:rgba(20,18,30,.16);
+    --success:#3B6939; --onSuccessCont:#00210A; --successCont:#BCF0B4;
+    --warn:#8F4C00; --warnCont:#FFDCC2; --onWarnCont:#2E1500;
+    --primary:#4F5BD5; --onPrimary:#FFFFFF; --primaryCont:#E1E0FF; --onPrimaryCont:#11144B;
+  }
+  [data-accent="green"]{ --primary:#006B5B; --onPrimary:#FFFFFF; --primaryCont:#71F8E0; --onPrimaryCont:#00201B; }
+  [data-accent="amber"]{ --primary:#8A5100; --onPrimary:#FFFFFF; --primaryCont:#FFDCBE; --onPrimaryCont:#2C1600; }
+  [data-accent="violet"]{ --primary:#6B4EA8; --onPrimary:#FFFFFF; --primaryCont:#EBDDFF; --onPrimaryCont:#250D5C; }
+  [data-theme="dark"]{
+    --canvas:#0C0C0F; --canvasDot:rgba(255,255,255,.04);
+    --surface:#131318; --surfaceLow:#1A1A20; --surfaceCont:#1E1E24; --surfaceHigh:#29292F; --surfaceHighest:#34343A;
+    --onSurface:#E4E1E9; --onSurfaceVar:#C7C5D0; --outline:#918F9A; --outlineVar:#46464F;
+    --scrim:rgba(0,0,0,.6); --shadow:rgba(0,0,0,.5);
+    --success:#A1D39A; --onSuccessCont:#BCF0B4; --successCont:#1F4620;
+    --warn:#FFB783; --warnCont:#5E3500; --onWarnCont:#FFDCC2;
+    --primary:#C0C1FF; --onPrimary:#1B2178; --primaryCont:#373B91; --onPrimaryCont:#E1E0FF;
+  }
+  [data-theme="dark"][data-accent="green"]{ --primary:#53DBC3; --onPrimary:#00382F; --primaryCont:#005045; --onPrimaryCont:#71F8E0; }
+  [data-theme="dark"][data-accent="amber"]{ --primary:#FFB868; --onPrimary:#492900; --primaryCont:#693C00; --onPrimaryCont:#FFDCBE; }
+  [data-theme="dark"][data-accent="violet"]{ --primary:#D5BBFF; --onPrimary:#3B1E6E; --primaryCont:#523885; --onPrimaryCont:#EBDDFF; }
+</style>
+</helmet>
+
+<div data-theme="{{ resolvedTheme }}" data-accent="{{ accent }}" style="min-height:100vh;width:100%;background:var(--canvas);background-image:radial-gradient(var(--canvasDot) 1px, transparent 1px);background-size:22px 22px;display:flex;flex-direction:column;align-items:center;padding:28px 20px 56px;gap:24px;transition:background .25s;">
+
+  <!-- ===== TOP CONTROL BAR (prototype chrome, not part of app) ===== -->
+  <div style="width:100%;max-width:980px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:34px;height:34px;border-radius:10px;background:var(--onSurface);color:var(--surface);display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font-weight:700;font-size:17px;line-height:1;box-shadow:0 2px 8px var(--shadow);">b<span style="color:var(--primary);">.</span></div>
+      <div>
+        <div style="font-weight:700;font-size:17px;color:var(--onSurface);letter-spacing:-.2px;">Bloggo</div>
+        <div style="font-size:11px;color:var(--onSurfaceVar);font-family:'Roboto Mono',monospace;">interactive prototype · Material 3</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--onSurfaceVar);text-transform:uppercase;letter-spacing:.6px;">Theme</span>
+        <div style="display:flex;background:var(--surfaceHigh);border-radius:999px;padding:3px;gap:2px;">
+          <button onClick="{{ setThemeLight }}" style="{{ segLight }}border-radius:999px;padding:6px 13px;font-size:12px;font-weight:500;transition:.15s;">Light</button>
+          <button onClick="{{ setThemeDark }}" style="{{ segDark }}border-radius:999px;padding:6px 13px;font-size:12px;font-weight:500;transition:.15s;">Dark</button>
+          <button onClick="{{ setThemeSystem }}" style="{{ segSystem }}border-radius:999px;padding:6px 13px;font-size:12px;font-weight:500;transition:.15s;">System</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--onSurfaceVar);text-transform:uppercase;letter-spacing:.6px;">Accent</span>
+        <div style="display:flex;gap:8px;">
+          <sc-for list="{{ accents }}" as="a" hint-placeholder-count="4">
+            <button onClick="{{ a.onSelect }}" title="{{ a.label }}" style="width:26px;height:26px;border-radius:999px;background:{{ a.color }};box-shadow:{{ a.ring }};transition:.15s;"></button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN ROW: phone + side panel ===== -->
+  <div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;max-width:980px;">
+
+    <!-- ================= PHONE SCREEN ================= -->
+    <div style="position:relative;width:392px;height:828px;border-radius:38px;background:var(--surface);box-shadow:0 24px 60px -12px var(--shadow),0 0 0 1px rgba(0,0,0,.04);overflow:hidden;flex-shrink:0;transition:background .25s;">
+
+      <!-- status bar -->
+      <div style="height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--onSurface);position:relative;z-index:5;">
+        <span style="font-family:'Roboto Mono',monospace;letter-spacing:-.5px;">9:41</span>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <span style="font-size:11px;">●●●</span>
+          <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0C4.7 0 2.2 1 .3 2.7L7.5 11l7.2-8.3C12.8 1 10.3 0 7.5 0z"/></svg>
+          <div style="width:20px;height:11px;border:1.4px solid var(--onSurface);border-radius:3px;position:relative;opacity:.85;"><div style="position:absolute;inset:1.4px;width:62%;background:var(--onSurface);border-radius:1px;"></div></div>
+        </div>
+      </div>
+
+      <!-- ============ HOME ============ -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;inset:30px 0 0 0;display:flex;flex-direction:column;">
+        <!-- app bar -->
+        <div style="padding:8px 8px 6px 20px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:26px;font-weight:700;color:var(--onSurface);letter-spacing:-.5px;">Bloggo</div>
+          <div style="display:flex;align-items:center;">
+            <button onClick="{{ refresh }}" style="width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--onSurfaceVar);" style-hover="background:var(--surfaceHigh);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="{{ refreshSpin }}"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+            </button>
+            <button onClick="{{ openSettings }}" style="width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--onSurfaceVar);" style-hover="background:var(--surfaceHigh);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.4" fill="var(--surface)"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="15" cy="17" r="2.4" fill="var(--surface)"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- search -->
+        <div style="padding:2px 16px 10px;">
+          <div style="display:flex;align-items:center;gap:10px;background:var(--surfaceCont);border-radius:999px;padding:11px 18px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--onSurfaceVar)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+            <input value="{{ search }}" onInput="{{ onSearch }}" placeholder="Search posts" style="flex:1;border:none;background:none;font-size:15px;color:var(--onSurface);"/>
+            <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ clearSearch }}" style="color:var(--onSurfaceVar);display:flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- refresh progress -->
+        <sc-if value="{{ refreshing }}" hint-placeholder-val="{{ false }}">
+          <div style="height:3px;position:relative;overflow:hidden;background:var(--primaryCont);"><div style="position:absolute;top:0;width:40%;height:100%;background:var(--primary);animation:barIndet 1s linear infinite;"></div></div>
+        </sc-if>
+
+        <!-- banner -->
+        <sc-if value="{{ showBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:6px 16px 2px;background:{{ bannerBg }};color:{{ bannerFg }};border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;font-size:13px;animation:fadeIn .2s;">
+            <span style="flex:1;">{{ bannerText }}</span>
+            <button onClick="{{ dismissBanner }}" style="color:inherit;font-weight:600;font-size:13px;opacity:.85;">{{ bannerAction }}</button>
+          </div>
+        </sc-if>
+
+        <!-- list -->
+        <div class="bg-scroll" style="flex:1;overflow-y:auto;padding:6px 0 110px;">
+
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 40px;gap:16px;">
+              <div style="width:84px;height:84px;border-radius:26px;background:var(--primaryCont);color:var(--onPrimaryCont);display:flex;align-items:center;justify-content:center;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
+              </div>
+              <div style="font-size:19px;font-weight:600;color:var(--onSurface);">No posts yet</div>
+              <div style="font-size:14px;color:var(--onSurfaceVar);max-width:230px;line-height:1.5;">Tap the button below to write your first post from your phone.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showList }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <!-- DRAFT section -->
+            <button onClick="{{ toggleDraft }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:14px 20px 8px;color:var(--onSurfaceVar);">
+              <span style="font-size:12px;width:14px;display:inline-flex;transition:.2s;transform:rotate({{ draftRot }});">▾</span>
+              <span style="font-size:13px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;">Draft</span>
+              <span style="font-size:12px;background:var(--surfaceHigh);border-radius:999px;padding:1px 8px;font-weight:500;">{{ draftCount }}</span>
+            </button>
+            <sc-if value="{{ draftOpen }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-for list="{{ draftPosts }}" as="p" hint-placeholder-count="3">
+                <div onClick="{{ p.onOpen }}" style="margin:0 12px 8px;padding:14px 16px;border-radius:18px;background:var(--surfaceLow);display:flex;flex-direction:column;gap:7px;" style-hover="background:var(--surfaceCont);">
+                  <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:15.5px;font-weight:600;color:var(--onSurface);line-height:1.25;">{{ p.title }}</div>
+                      <div style="font-size:12.5px;color:var(--onSurfaceVar);margin-top:3px;font-family:'Roboto Mono',monospace;">{{ p.meta }}</div>
+                    </div>
+                    <button onClick="{{ p.onDelete }}" style="width:32px;height:32px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--onSurfaceVar);margin:-4px -4px 0 0;" style-hover="background:var(--surfaceHigh);color:#d24b4b;">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>
+                    </button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <sc-if value="{{ p.synced }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;background:var(--successCont);color:var(--onSuccessCont);border-radius:999px;padding:3px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Synced</span>
+                    </sc-if>
+                    <sc-if value="{{ p.local }}" hint-placeholder-val="{{ true }}">
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;border:1px solid var(--outlineVar);color:var(--onSurfaceVar);border-radius:999px;padding:2px 10px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v8M5 13v5a2 2 0 002 2h10a2 2 0 002-2v-5"/><path d="M8 6l4-4 4 4"/></svg>Local</span>
+                    </sc-if>
+                    <sc-if value="{{ p.edited }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--warn);font-weight:500;"><span style="width:6px;height:6px;border-radius:999px;background:var(--warn);"></span>edited</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+            <!-- PUBLISHED section -->
+            <button onClick="{{ togglePublished }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:16px 20px 8px;color:var(--onSurfaceVar);">
+              <span style="font-size:12px;width:14px;display:inline-flex;transition:.2s;transform:rotate({{ pubRot }});">▾</span>
+              <span style="font-size:13px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;">Published</span>
+              <span style="font-size:12px;background:var(--surfaceHigh);border-radius:999px;padding:1px 8px;font-weight:500;">{{ pubCount }}</span>
+            </button>
+            <sc-if value="{{ pubOpen }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-for list="{{ publishedPosts }}" as="p" hint-placeholder-count="3">
+                <div onClick="{{ p.onOpen }}" style="margin:0 12px 8px;padding:14px 16px;border-radius:18px;background:var(--surfaceLow);display:flex;flex-direction:column;gap:7px;" style-hover="background:var(--surfaceCont);">
+                  <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:15.5px;font-weight:600;color:var(--onSurface);line-height:1.25;">{{ p.title }}</div>
+                      <div style="font-size:12.5px;color:var(--onSurfaceVar);margin-top:3px;font-family:'Roboto Mono',monospace;">{{ p.meta }}</div>
+                    </div>
+                    <button onClick="{{ p.onViewLive }}" style="height:32px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;gap:5px;padding:0 12px 0 11px;color:var(--primary);font-size:12.5px;font-weight:600;margin:-2px -4px 0 0;" style-hover="background:var(--surfaceHigh);">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>Live
+                    </button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;background:var(--successCont);color:var(--onSuccessCont);border-radius:999px;padding:3px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Synced</span>
+                    <sc-if value="{{ p.edited }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--warn);font-weight:500;"><span style="width:6px;height:6px;border-radius:999px;background:var(--warn);"></span>edited</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+          </sc-if>
+        </div>
+
+        <!-- FAB -->
+        <button onClick="{{ newPost }}" style="position:absolute;right:20px;bottom:24px;height:60px;border-radius:20px;background:var(--primary);color:var(--onPrimary);display:flex;align-items:center;gap:9px;padding:0 22px 0 18px;font-size:15px;font-weight:600;box-shadow:0 8px 22px -4px var(--shadow);" style-hover="filter:brightness(1.05);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New post
+        </button>
+      </div>
+      </sc-if>
+
+      <!-- ============ EDITOR ============ -->
+      <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:30px 0 0 0;display:flex;flex-direction:column;">
+        <!-- editor app bar -->
+        <div style="padding:6px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--outlineVar);">
+          <button onClick="{{ attemptBack }}" style="width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="flex:1;font-size:17px;font-weight:600;color:var(--onSurface);">{{ edTitleLabel }}</div>
+          <div style="display:flex;background:var(--surfaceHigh);border-radius:999px;padding:3px;gap:2px;">
+            <button onClick="{{ showEdit }}" style="{{ edEditSeg }}border-radius:999px;padding:6px 14px;font-size:13px;font-weight:500;">Edit</button>
+            <button onClick="{{ showPreview }}" style="{{ edPrevSeg }}border-radius:999px;padding:6px 14px;font-size:13px;font-weight:500;">Preview</button>
+          </div>
+        </div>
+
+        <div class="bg-scroll" style="flex:1;overflow-y:auto;padding:0 0 150px;">
+          <!-- title -->
+          <sc-if value="{{ edNotPreview }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="padding:18px 20px 4px;">
+              <input value="{{ edTitle }}" onInput="{{ onEdTitle }}" onBlur="{{ onTitleBlur }}" placeholder="Post title" style="width:100%;border:none;background:none;font-size:24px;font-weight:700;color:var(--onSurface);letter-spacing:-.4px;"/>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:8px;">
+                <span style="font-size:12px;font-family:'Roboto Mono',monospace;color:var(--onSurfaceVar);">slug:</span>
+                <span style="font-size:12px;font-family:'Roboto Mono',monospace;color:var(--primary);background:var(--primaryCont);color:var(--onPrimaryCont);border-radius:6px;padding:2px 7px;">{{ edSlug }}</span>
+                <sc-if value="{{ edSlugFrozen }}" hint-placeholder-val="{{ false }}">
+                  <span title="Slug is frozen so live URLs never break" style="display:inline-flex;color:var(--onSurfaceVar);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>
+                </sc-if>
+              </div>
+            </div>
+
+            <!-- front matter collapsible -->
+            <div style="margin:14px 16px 0;border:1px solid var(--outlineVar);border-radius:16px;overflow:hidden;">
+              <button onClick="{{ toggleFm }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:13px 15px;color:var(--onSurface);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--onSurfaceVar)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+                <span style="flex:1;text-align:left;font-size:14px;font-weight:600;">Front matter</span>
+                <span style="font-size:11px;font-family:'Roboto Mono',monospace;color:var(--onSurfaceVar);">title · slug · draft managed</span>
+                <span style="font-size:11px;width:12px;display:inline-flex;color:var(--onSurfaceVar);transform:rotate({{ fmRot }});transition:.2s;">▾</span>
+              </button>
+              <sc-if value="{{ edFmOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="border-top:1px solid var(--outlineVar);background:var(--surfaceLow);">
+                  <textarea value="{{ edFmText }}" onInput="{{ onEdFm }}" spellcheck="false" style="width:100%;min-height:118px;border:none;background:none;resize:none;padding:13px 15px;font-family:'Roboto Mono',monospace;font-size:13px;line-height:1.6;color:var(--onSurface);"></textarea>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- body -->
+            <textarea ref="{{ bodyRef }}" value="{{ edBody }}" onInput="{{ onEdBody }}" spellcheck="false" placeholder="Write in Markdown…" style="width:100%;min-height:340px;border:none;background:none;resize:none;padding:18px 20px 0;font-family:'Roboto Mono',monospace;font-size:14.5px;line-height:1.65;color:var(--onSurface);"></textarea>
+          </div>
+          </sc-if>
+
+          <!-- preview -->
+          <sc-if value="{{ edPreview }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px 22px;color:var(--onSurface);font-size:15px;line-height:1.65;">{{ previewNode }}</div>
+          </sc-if>
+        </div>
+
+        <!-- formatting toolbar + actions -->
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surfaceLow);border-top:1px solid var(--outlineVar);">
+          <sc-if value="{{ edNotPreview }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:4px;padding:8px 12px;border-bottom:1px solid var(--outlineVar);position:relative;">
+            <button onClick="{{ fmtBold }}" style="width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">B</button>
+            <button onClick="{{ fmtItalic }}" style="width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-style:italic;font-weight:600;font-size:17px;font-family:Georgia,serif;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">I</button>
+            <button onClick="{{ fmtLink }}" style="width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l2.5-2.5a5 5 0 00-7.07-7.07L11 5"/><path d="M14 11a5 5 0 00-7.07 0l-2.5 2.5a5 5 0 007.07 7.07L13 19"/></svg>
+            </button>
+            <button onClick="{{ openImage }}" style="width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 20"/></svg>
+            </button>
+            <button onClick="{{ toggleHeading }}" style="{{ hBtnStyle }}width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;" style-hover="background:var(--surfaceHigh);">H</button>
+            <div style="flex:1;"></div>
+            <span style="font-size:11px;font-family:'Roboto Mono',monospace;color:var(--onSurfaceVar);padding-right:6px;">{{ wordCount }} words</span>
+
+            <!-- heading flyout -->
+            <sc-if value="{{ edHeadingFlyout }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;bottom:52px;left:174px;background:var(--surfaceHigh);border-radius:14px;box-shadow:0 10px 30px -6px var(--shadow);padding:6px;display:flex;flex-direction:column;min-width:138px;animation:sheetUp .14s ease-out;z-index:20;">
+                <sc-for list="{{ headings }}" as="h" hint-placeholder-count="6">
+                  <button onClick="{{ h.onPick }}" style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:9px;color:var(--onSurface);" style-hover="background:var(--surfaceHighest);">
+                    <span style="font-weight:700;font-size:{{ h.size }};">{{ h.label }}</span>
+                    <span style="font-family:'Roboto Mono',monospace;font-size:11px;color:var(--onSurfaceVar);">{{ h.hash }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          </sc-if>
+          <div style="display:flex;gap:10px;padding:12px 16px 16px;">
+            <button onClick="{{ saveLocal }}" style="flex:1;height:48px;border-radius:14px;border:1px solid var(--outline);color:var(--primary);font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;" style-hover="background:var(--surfaceHigh);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+              Save local
+            </button>
+            <button onClick="{{ startPublish }}" style="flex:1.2;height:48px;border-radius:14px;background:var(--primary);color:var(--onPrimary);font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;" style-hover="filter:brightness(1.05);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              Publish
+            </button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ SETTINGS ============ -->
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:30px 0 0 0;display:flex;flex-direction:column;">
+        <div style="padding:6px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--outlineVar);">
+          <button onClick="{{ goHome }}" style="width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--onSurface);" style-hover="background:var(--surfaceHigh);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          </button>
+          <div style="font-size:19px;font-weight:600;color:var(--onSurface);">Settings</div>
+        </div>
+        <div class="bg-scroll" style="flex:1;overflow-y:auto;padding:18px 18px 60px;display:flex;flex-direction:column;gap:24px;">
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--primary);">GitHub</div>
+            <div style="background:var(--surfaceLow);border-radius:16px;padding:4px 16px;">
+              <div style="padding:12px 0;border-bottom:1px solid var(--outlineVar);">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:5px;">Personal access token</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="flex:1;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);letter-spacing:1px;">{{ patDisplay }}</span>
+                  <button onClick="{{ togglePat }}" style="width:38px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--onSurfaceVar);" style-hover="background:var(--surfaceHigh);">
+                    <sc-if value="{{ patReveal }}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></sc-if>
+                    <sc-if value="{{ patHidden }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 10.7a3 3 0 004.2 4.2M9.9 5.2A9.5 9.5 0 0112 5c6 0 10 7 10 7a17 17 0 01-3 3.8M6.6 6.7A17 17 0 002 12s4 7 10 7a9 9 0 003.4-.7"/></svg></sc-if>
+                  </button>
+                </div>
+              </div>
+              <div style="padding:12px 0;border-bottom:1px solid var(--outlineVar);">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Repository</div>
+                <input value="{{ sRepo }}" onInput="{{ onSRepo }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+              <div style="padding:12px 0;">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Branch</div>
+                <input value="{{ sBranch }}" onInput="{{ onSBranch }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--primary);">Paths</div>
+            <div style="background:var(--surfaceLow);border-radius:16px;padding:4px 16px;">
+              <div style="padding:12px 0;border-bottom:1px solid var(--outlineVar);">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Content path</div>
+                <input value="{{ sContent }}" onInput="{{ onSContent }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+              <div style="padding:12px 0;border-bottom:1px solid var(--outlineVar);">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Image repo path</div>
+                <input value="{{ sImgPath }}" onInput="{{ onSImgPath }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+              <div style="padding:12px 0;border-bottom:1px solid var(--outlineVar);">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Image URL base</div>
+                <input value="{{ sImgUrl }}" onInput="{{ onSImgUrl }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+              <div style="padding:12px 0;">
+                <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:4px;">Blog base URL</div>
+                <input value="{{ sBlogUrl }}" onInput="{{ onSBlogUrl }}" style="width:100%;border:none;background:none;font-family:'Roboto Mono',monospace;font-size:14px;color:var(--onSurface);"/>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--primary);">Default front matter</div>
+            <div style="background:var(--surfaceLow);border-radius:16px;padding:6px 8px;">
+              <textarea value="{{ sFmTemplate }}" onInput="{{ onSFmTemplate }}" spellcheck="false" style="width:100%;min-height:84px;border:none;background:none;resize:none;padding:10px;font-family:'Roboto Mono',monospace;font-size:13px;line-height:1.6;color:var(--onSurface);"></textarea>
+            </div>
+            <div style="font-size:11.5px;color:var(--onSurfaceVar);font-family:'Roboto Mono',monospace;padding-left:2px;">{date} is auto-filled at creation</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--primary);">Appearance</div>
+            <div style="background:var(--surfaceLow);border-radius:16px;padding:16px;">
+              <div style="font-size:13px;color:var(--onSurface);margin-bottom:11px;font-weight:500;">Theme</div>
+              <div style="display:flex;background:var(--surfaceHigh);border-radius:999px;padding:4px;gap:3px;">
+                <button onClick="{{ setThemeLight }}" style="{{ stLight }}flex:1;border-radius:999px;padding:9px 0;font-size:13px;font-weight:500;">Light</button>
+                <button onClick="{{ setThemeDark }}" style="{{ stDark }}flex:1;border-radius:999px;padding:9px 0;font-size:13px;font-weight:500;">Dark</button>
+                <button onClick="{{ setThemeSystem }}" style="{{ stSystem }}flex:1;border-radius:999px;padding:9px 0;font-size:13px;font-weight:500;">System</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--primary);">Security</div>
+            <div style="background:var(--surfaceLow);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:12px;background:var(--primaryCont);color:var(--onPrimaryCont);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1l8 4v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:500;color:var(--onSurface);">App lock</div>
+                <div style="font-size:12px;color:var(--onSurfaceVar);">Biometric unlock · token is write-capable</div>
+              </div>
+              <button onClick="{{ toggleAppLock }}" style="width:48px;height:28px;border-radius:999px;background:{{ lockTrackBg }};position:relative;transition:.2s;flex-shrink:0;">
+                <span style="position:absolute;top:3px;left:{{ lockKnobX }};width:22px;height:22px;border-radius:999px;background:{{ lockKnobBg }};transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ DIALOGS / SHEETS ============ -->
+      <sc-if value="{{ hasDialog }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ scrimClick }}" style="position:absolute;inset:0;background:var(--scrim);z-index:40;display:flex;flex-direction:column;justify-content:flex-end;animation:fadeIn .15s;"></div>
+      </sc-if>
+
+      <!-- draft-flip -->
+      <sc-if value="{{ dlgDraftFlip }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:50;background:var(--surfaceHigh);border-radius:28px;padding:24px;animation:sheetUp .18s ease-out;">
+          <div style="width:48px;height:48px;border-radius:14px;background:var(--primaryCont);color:var(--onPrimaryCont);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-7L9 4H5a2 2 0 00-2 2z"/></svg>
+          </div>
+          <div style="font-size:20px;font-weight:600;color:var(--onSurface);margin-bottom:8px;">Flip out of draft mode?</div>
+          <div style="font-size:14px;color:var(--onSurfaceVar);line-height:1.5;margin-bottom:22px;">This post is marked <code style="font-family:'Roboto Mono',monospace;background:var(--surfaceHighest);padding:1px 6px;border-radius:5px;">draft: true</code>. Publishing will set it to <code style="font-family:'Roboto Mono',monospace;background:var(--surfaceHighest);padding:1px 6px;border-radius:5px;">draft: false</code> so it goes live.</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onClick="{{ keepDraft }}" style="padding:11px 18px;border-radius:12px;color:var(--primary);font-size:14px;font-weight:600;" style-hover="background:var(--surfaceHighest);">Keep as draft</button>
+            <button onClick="{{ confirmDraftFlip }}" style="padding:11px 20px;border-radius:12px;background:var(--primary);color:var(--onPrimary);font-size:14px;font-weight:600;">Flip & continue</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- push confirm / diff -->
+      <sc-if value="{{ dlgPush }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--surfaceHigh);border-radius:28px 28px 0 0;padding:8px 0 0;animation:sheetUp .2s ease-out;max-height:82%;display:flex;flex-direction:column;">
+          <div style="width:34px;height:4px;border-radius:999px;background:var(--outlineVar);margin:6px auto 12px;"></div>
+          <div style="padding:0 22px 14px;">
+            <div style="font-size:20px;font-weight:600;color:var(--onSurface);">{{ pushTitle }}</div>
+            <div style="font-size:13px;color:var(--onSurfaceVar);margin-top:4px;font-family:'Roboto Mono',monospace;">{{ pushPath }}</div>
+          </div>
+          <div style="padding:0 22px;margin-bottom:14px;">
+            <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:6px;">Commit message</div>
+            <div style="background:var(--surface);border:1px solid var(--outlineVar);border-radius:12px;padding:12px 14px;font-family:'Roboto Mono',monospace;font-size:13px;color:var(--onSurface);">{{ commitMsg }}</div>
+          </div>
+          <div class="bg-scroll" style="flex:1;overflow-y:auto;padding:0 22px 8px;">
+            <div style="font-size:12px;color:var(--onSurfaceVar);margin-bottom:6px;">{{ diffLabel }}</div>
+            <div style="background:var(--surface);border:1px solid var(--outlineVar);border-radius:12px;overflow:hidden;font-family:'Roboto Mono',monospace;font-size:12.5px;line-height:1.7;">
+              <sc-for list="{{ diffLines }}" as="d" hint-placeholder-count="5">
+                <div style="padding:1px 12px;background:{{ d.bg }};color:{{ d.fg }};white-space:pre-wrap;">{{ d.text }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;padding:14px 22px 22px;">
+            <button onClick="{{ cancelDialog }}" style="flex:1;height:48px;border-radius:14px;border:1px solid var(--outline);color:var(--primary);font-size:14.5px;font-weight:600;">Cancel</button>
+            <button onClick="{{ confirmPush }}" style="flex:1.3;height:48px;border-radius:14px;background:var(--primary);color:var(--onPrimary);font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <sc-if value="{{ pushing }}" hint-placeholder-val="{{ false }}"><span style="width:17px;height:17px;border:2.4px solid var(--onPrimary);border-top-color:transparent;border-radius:999px;display:inline-block;animation:spin .7s linear infinite;"></span></sc-if>
+              <sc-if value="{{ notPushing }}" hint-placeholder-val="{{ true }}"><span>{{ pushBtnLabel }}</span></sc-if>
+            </button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- image size -->
+      <sc-if value="{{ dlgImage }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--surfaceHigh);border-radius:28px 28px 0 0;padding:8px 0 22px;animation:sheetUp .2s ease-out;">
+          <div style="width:34px;height:4px;border-radius:999px;background:var(--outlineVar);margin:6px auto 14px;"></div>
+          <div style="padding:0 22px 6px;font-size:19px;font-weight:600;color:var(--onSurface);">Insert image</div>
+          <div style="padding:0 22px 18px;font-size:13.5px;color:var(--onSurfaceVar);">Choose a size — the image is resized to a max width, aspect ratio preserved.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:0 16px;">
+            <sc-for list="{{ imageSizes }}" as="s" hint-placeholder-count="3">
+              <button onClick="{{ s.onPick }}" style="display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:16px;background:var(--surfaceLow);text-align:left;" style-hover="background:var(--surfaceHighest);">
+                <div style="width:{{ s.box }};height:34px;border-radius:7px;background:var(--primaryCont);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--onPrimaryCont);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L5 20"/></svg>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:600;color:var(--onSurface);">{{ s.label }}</div>
+                  <div style="font-size:12.5px;color:var(--onSurfaceVar);font-family:'Roboto Mono',monospace;">max-width {{ s.px }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- delete -->
+      <sc-if value="{{ dlgDelete }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:50;background:var(--surfaceHigh);border-radius:28px;padding:24px;animation:sheetUp .18s ease-out;">
+          <div style="font-size:20px;font-weight:600;color:var(--onSurface);margin-bottom:8px;">Delete draft?</div>
+          <div style="font-size:14px;color:var(--onSurfaceVar);line-height:1.5;margin-bottom:22px;">“{{ deleteTitle }}” will be permanently removed. This can’t be undone.</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onClick="{{ cancelDialog }}" style="padding:11px 18px;border-radius:12px;color:var(--primary);font-size:14px;font-weight:600;" style-hover="background:var(--surfaceHighest);">Cancel</button>
+            <button onClick="{{ confirmDelete }}" style="padding:11px 20px;border-radius:12px;background:#BA1A1A;color:#fff;font-size:14px;font-weight:600;">Delete</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- discard -->
+      <sc-if value="{{ dlgDiscard }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:50;background:var(--surfaceHigh);border-radius:28px;padding:24px;animation:sheetUp .18s ease-out;">
+          <div style="font-size:20px;font-weight:600;color:var(--onSurface);margin-bottom:8px;">Discard changes?</div>
+          <div style="font-size:14px;color:var(--onSurfaceVar);line-height:1.5;margin-bottom:22px;">You have unsaved edits. Leaving now will lose them.</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onClick="{{ cancelDialog }}" style="padding:11px 18px;border-radius:12px;color:var(--primary);font-size:14px;font-weight:600;" style-hover="background:var(--surfaceHighest);">Keep editing</button>
+            <button onClick="{{ confirmDiscard }}" style="padding:11px 20px;border-radius:12px;background:#BA1A1A;color:#fff;font-size:14px;font-weight:600;">Discard</button>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+
+    <!-- ================= SIDE PANEL ================= -->
+    <div style="width:330px;display:flex;flex-direction:column;gap:18px;flex-shrink:0;">
+
+      <!-- state preview -->
+      <div style="background:var(--surface);border-radius:22px;padding:18px;box-shadow:0 1px 3px var(--shadow);border:1px solid var(--outlineVar);">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--onSurfaceVar);margin-bottom:4px;">Home states</div>
+        <div style="font-size:12.5px;color:var(--onSurfaceVar);margin-bottom:12px;line-height:1.4;">Preview how the list behaves in each condition.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <sc-for list="{{ homeStates }}" as="hs" hint-placeholder-count="4">
+            <button onClick="{{ hs.onSelect }}" style="{{ hs.style }}border-radius:12px;padding:10px;font-size:13px;font-weight:500;text-align:left;transition:.15s;">{{ hs.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- app icon -->
+      <div style="background:var(--surface);border-radius:22px;padding:18px;box-shadow:0 1px 3px var(--shadow);border:1px solid var(--outlineVar);">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--onSurfaceVar);margin-bottom:4px;">App icon</div>
+        <div style="font-size:12.5px;color:var(--onSurfaceVar);margin-bottom:16px;line-height:1.4;">The “Mono dot” mark — adaptive, the dot follows the accent above.</div>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <div style="width:104px;height:104px;border-radius:30%;background:var(--onSurface);color:var(--surface);display:flex;align-items:flex-end;justify-content:center;padding-bottom:18px;font-size:48px;font-weight:700;box-shadow:0 6px 16px -3px var(--shadow);line-height:1;flex-shrink:0;">b<span style="color:var(--primary);">.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:44px;height:44px;border-radius:30%;background:var(--onSurface);color:var(--surface);display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-size:21px;font-weight:700;line-height:1;">b<span style="color:var(--primary);">.</span></div>
+              <div style="width:30px;height:30px;border-radius:30%;background:var(--onSurface);color:var(--surface);display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font-size:14px;font-weight:700;line-height:1;">b<span style="color:var(--primary);">.</span></div>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--successCont);color:var(--onSuccessCont);border-radius:999px;padding:4px 11px;width:max-content;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Selected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- legend -->
+      <div style="background:var(--surface);border-radius:22px;padding:18px;box-shadow:0 1px 3px var(--shadow);border:1px solid var(--outlineVar);">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--onSurfaceVar);margin-bottom:12px;">Try these flows</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;color:var(--onSurface);line-height:1.4;">
+          <div style="display:flex;gap:9px;"><span style="color:var(--primary);font-weight:700;">1</span><span>Tap <b>New post</b> → type a title → write body → <b>Publish</b> to run the draft-flip + diff flow.</span></div>
+          <div style="display:flex;gap:9px;"><span style="color:var(--primary);font-weight:700;">2</span><span>Open a post → use the <b>H</b> toolbar button for the heading flyout, or the image button for size presets.</span></div>
+          <div style="display:flex;gap:9px;"><span style="color:var(--primary);font-weight:700;">3</span><span>Toggle <b>Preview</b> to render Markdown; open <b>Settings</b> via the gear.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:920},&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;indigo&quot;,&quot;green&quot;,&quot;amber&quot;,&quot;violet&quot;],&quot;default&quot;:&quot;indigo&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;system&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.bodyRef = React.createRef();
+    const accent = props.accent || 'indigo';
+    const theme = props.theme || 'light';
+    this.state = {
+      theme, accent, screen:'home',
+      search:'', draftOpen:true, pubOpen:true,
+      refreshing:false, banner:null, homeState:'normal',
+      dialog:null, pushing:false, deleteTarget:null,
+      patReveal:false, appLock:true, headingFlyout:false,
+      ed:null,
+      settings:{
+        pat:'ghp_8Qx4kLmN2pRsT', repo:'meghal/blog', branch:'main',
+        content:'content/posts', imgPath:'static/images', imgUrl:'/images',
+        blogUrl:'https://blog.meghal.dev', fmTemplate:'date: {date}\ntags: []\nsummary: ""'
+      },
+      posts: this.initialPosts()
+    };
+  }
+
+  initialPosts(){
+    return [
+      { id:'p1', title:'Setting up Nginx as a reverse proxy', date:'2026-06-21', draft:true, synced:false, edited:false, slug:'setting-up-nginx-reverse-proxy',
+        fm:'date: 2026-06-21T08:14:00+00:00\ntags: [nginx, devops]\nsummary: "One domain, many services."',
+        body:'Running several services behind a single domain is easiest with a small reverse proxy in front.\n\n## Why Nginx\n\nIt is fast, battle-tested, and the config stays readable.\n\n```\nlocation /api {\n  proxy_pass http://127.0.0.1:8080;\n}\n```\n\nReload with `nginx -s reload` and you are done.' },
+      { id:'p2', title:'Notes on Rust ownership', date:'2026-06-19', draft:true, synced:true, edited:true, slug:'notes-on-rust-ownership',
+        fm:'date: 2026-06-12T19:02:00+00:00\ntags: [rust, memory]\nsummary: "Safe without a GC."',
+        body:'Ownership is the rule that makes Rust *safe without a garbage collector*.\n\n- Each value has a single **owner**.\n- When the owner goes out of scope, the value is dropped.\n\nBorrowing lets you reference data without taking ownership — and the compiler checks it all at build time.' },
+      { id:'p3', title:'Why I finally switched to Neovim', date:'2026-06-15', draft:true, synced:false, edited:false, slug:'why-i-switched-to-neovim',
+        fm:'date: 2026-06-15T07:40:00+00:00\ntags: [editors, neovim]',
+        body:'After a decade in other editors, the move was mostly about **speed** and config-as-code.\n\nLua config beats vimscript for anything non-trivial, and the LSP story is excellent now.' },
+      { id:'p4', title:'Self-hosting with Docker Compose', date:'2026-06-08', draft:false, synced:true, edited:false, slug:'self-hosting-with-docker-compose',
+        fm:'date: 2026-06-08T11:20:00+00:00\ntags: [docker, selfhost]\nsummary: "A whole stack in one file."',
+        body:'# Self-hosting with Docker Compose\n\nA single `docker-compose.yml` can describe a whole stack.\n\n## The pattern\n\nEach service gets a block; volumes keep state; a network ties them together.\n\nBring it up with `docker compose up -d` and watch logs with `docker compose logs -f`.' },
+      { id:'p5', title:'A short tour of ripgrep', date:'2026-05-30', draft:false, synced:true, edited:false, slug:'a-tour-of-ripgrep',
+        fm:'date: 2026-05-30T16:05:00+00:00\ntags: [cli, tools]',
+        body:'`ripgrep` (rg) searches your whole tree respecting `.gitignore` by default, and it is *fast*.\n\n- `rg foo` — search recursively\n- `rg -t py foo` — only Python files\n- `rg -l foo` — just the filenames\n\nIt has quietly replaced grep in my muscle memory.' },
+      { id:'p6', title:'Static sites with Hugo', date:'2026-05-22', draft:false, synced:true, edited:true, slug:'static-sites-with-hugo',
+        fm:'date: 2026-05-22T09:00:00+00:00\ntags: [hugo, blogging]\nsummary: "Markdown in, fast site out."',
+        body:'# Static sites with Hugo\n\nWrite Markdown, run one command, get a fast static site.\n\n## Front matter\n\nEvery page starts with a small YAML block that sets the title, date and tags. Everything else is just content.' }
+    ];
+  }
+
+  // ---------- helpers ----------
+  update(p){ this.setState(p); }
+  updateEd(p){ this.setState(s => ({ ed: { ...s.ed, ...p } })); }
+  slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+  fmtDate(iso){ const d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+  resolveTheme(){
+    if(this.state.theme!=='system') return this.state.theme;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+
+  // ---------- navigation ----------
+  openSettings(){ this.update({screen:'settings'}); }
+  goHome(){ this.update({screen:'home', ed:null, dialog:null}); }
+  openPost(id){
+    const p = this.state.posts.find(x=>x.id===id); if(!p) return;
+    this.update({ screen:'editor', dialog:null, headingFlyout:false, ed:{
+      id:p.id, title:p.title, body:p.body, fm:p.fm, slug:p.slug, draft:p.draft,
+      synced:p.synced, isNew:false, preview:false, fmOpen:false, dirty:false, slugFrozen:p.synced
+    }});
+  }
+  newPost(){
+    const seed = this.state.settings.fmTemplate.replace('{date}', new Date().toISOString().slice(0,19)+'+00:00');
+    this.update({ screen:'editor', dialog:null, headingFlyout:false, ed:{
+      id:null, title:'', body:'', fm:seed, slug:'', draft:true, synced:false,
+      isNew:true, preview:false, fmOpen:false, dirty:false, slugFrozen:false, seeded:false
+    }});
+  }
+  attemptBack(){ if(this.state.ed && this.state.ed.dirty) this.update({dialog:'discard'}); else this.goHome(); }
+
+  // ---------- home ----------
+  toggleDraft(){ this.update({draftOpen:!this.state.draftOpen}); }
+  togglePublished(){ this.update({pubOpen:!this.state.pubOpen}); }
+  onSearch(e){ this.update({search:e.target.value}); }
+  clearSearch(){ this.update({search:''}); }
+  refresh(){
+    if(this.state.homeState==='offline'){ this.update({banner:{type:'warn',text:'You are offline — connect to refresh.',action:'Dismiss'}}); return; }
+    this.update({refreshing:true});
+    setTimeout(()=> this.update({refreshing:false, banner:{type:'ok',text:'Up to date with GitHub.',action:'Dismiss'}}), 1300);
+  }
+  dismissBanner(){ this.update({banner:null}); }
+  setHomeState(s){
+    let banner=null;
+    if(s==='error') banner={type:'warn',text:"Couldn't refresh from GitHub. Showing cached posts.",action:'Retry'};
+    if(s==='offline') banner={type:'neutral',text:'Offline — cached posts available. Publish is disabled.',action:'Dismiss'};
+    this.update({homeState:s, banner});
+  }
+
+  // ---------- editor fields ----------
+  onEdTitle(e){
+    const v=e.target.value; const ed=this.state.ed; const patch={title:v,dirty:true};
+    if(ed.isNew && !ed.seeded && v.trim()){ patch.seeded=true; }
+    this.updateEd(patch);
+  }
+  onTitleBlur(){
+    const ed=this.state.ed; if(!ed) return;
+    if(ed.isNew && !ed.slugFrozen) this.updateEd({slug:this.slugify(ed.title)});
+  }
+  onEdBody(e){ this.updateEd({body:e.target.value,dirty:true}); }
+  onEdFm(e){ this.updateEd({fm:e.target.value,dirty:true}); }
+  toggleFm(){ this.updateEd({fmOpen:!this.state.ed.fmOpen}); }
+  showEdit(){ this.update({headingFlyout:false}); this.updateEd({preview:false}); }
+  showPreview(){ this.update({headingFlyout:false}); this.updateEd({preview:true}); }
+
+  // ---------- formatting ----------
+  wrap(before, after, ph){
+    const ta=this.bodyRef.current; if(!ta){ return; }
+    const s=ta.selectionStart, e=ta.selectionEnd, v=ta.value;
+    const sel = v.slice(s,e) || ph;
+    const nv = v.slice(0,s)+before+sel+after+v.slice(e);
+    this.updateEd({body:nv,dirty:true});
+    setTimeout(()=>{ ta.focus(); const ns=s+before.length; ta.setSelectionRange(ns, ns+sel.length); },0);
+  }
+  fmtBold(){ this.wrap('**','**','bold text'); }
+  fmtItalic(){ this.wrap('*','*','italic text'); }
+  fmtLink(){
+    const ta=this.bodyRef.current; if(!ta) return;
+    const s=ta.selectionStart, e=ta.selectionEnd, v=ta.value;
+    const sel=v.slice(s,e)||'link text';
+    const nv=v.slice(0,s)+'['+sel+'](https://)'+v.slice(e);
+    this.updateEd({body:nv,dirty:true});
+    setTimeout(()=>{ ta.focus(); const pos=s+sel.length+3; ta.setSelectionRange(pos,pos+8); },0);
+  }
+  toggleHeading(){ this.update({headingFlyout:!this.state.headingFlyout}); }
+  applyHeading(n){
+    const ta=this.bodyRef.current;
+    if(ta){
+      const v=ta.value; let ls=ta.selectionStart;
+      while(ls>0 && v[ls-1]!=='\n') ls--;
+      let le=ls; while(le<v.length && v[le]!=='\n') le++;
+      let line=v.slice(ls,le).replace(/^#{1,6}\s*/,'');
+      const nl='#'.repeat(n)+' '+line;
+      const nv=v.slice(0,ls)+nl+v.slice(le);
+      this.updateEd({body:nv,dirty:true});
+      const cur=ls+nl.length;
+      setTimeout(()=>{ ta.focus(); ta.setSelectionRange(cur,cur); },0);
+    }
+    this.update({headingFlyout:false});
+  }
+  openImage(){ this.update({dialog:'image', headingFlyout:false}); }
+  insertImage(size){
+    const map={Small:480,Medium:768,Large:1200};
+    const ta=this.bodyRef.current;
+    const url=this.state.settings.imgUrl+'/'+(this.state.ed.slug||'image')+'-'+size.toLowerCase()+'.jpg';
+    const snippet='\n![alt text]('+url+')\n';
+    let nv;
+    if(ta){ const s=ta.selectionStart, v=ta.value; nv=v.slice(0,s)+snippet+v.slice(s); }
+    else { nv=this.state.ed.body+snippet; }
+    this.updateEd({body:nv,dirty:true});
+    this.update({dialog:null});
+  }
+
+  // ---------- save / publish ----------
+  saveLocal(){
+    const ed=this.state.ed; let posts=this.state.posts.slice();
+    if(ed.isNew){
+      const slug=ed.slug||this.slugify(ed.title)||'untitled';
+      posts.unshift({ id:'p'+Date.now(), title:ed.title||'Untitled', body:ed.body, fm:ed.fm, slug,
+        date:new Date().toISOString().slice(0,10), draft:ed.draft, synced:false, edited:false });
+    } else {
+      posts = posts.map(p => p.id===ed.id ? {...p, title:ed.title, body:ed.body, fm:ed.fm,
+        edited: p.synced ? true : false } : p);
+    }
+    this.update({posts, screen:'home', ed:null, banner:{type:'ok',text:'Saved locally.',action:'Dismiss'}});
+  }
+  startPublish(){
+    if(this.state.homeState==='offline'){ this.update({banner:{type:'warn',text:'Offline — publish is disabled.',action:'Dismiss'}, screen:'home'}); return; }
+    if(this.state.ed.draft) this.update({dialog:'draftFlip'});
+    else this.update({dialog:'push'});
+  }
+  keepDraft(){ this.update({dialog:null}); }
+  confirmDraftFlip(){ this.updateEd({draft:false}); this.update({dialog:'push'}); }
+  confirmPush(){
+    if(this.state.pushing) return;
+    this.update({pushing:true});
+    setTimeout(()=>{
+      const ed=this.state.ed; let posts=this.state.posts.slice();
+      if(ed.isNew){
+        const slug=ed.slug||this.slugify(ed.title)||'untitled';
+        posts.unshift({ id:'p'+Date.now(), title:ed.title||'Untitled', body:ed.body, fm:ed.fm, slug,
+          date:new Date().toISOString().slice(0,10), draft:ed.draft, synced:true, edited:false });
+      } else {
+        posts = posts.map(p => p.id===ed.id ? {...p, title:ed.title, body:ed.body, fm:ed.fm,
+          draft:ed.draft, synced:true, edited:false } : p);
+      }
+      this.update({posts, pushing:false, dialog:null, screen:'home', ed:null,
+        banner:{type:'ok', text:'Published to GitHub · '+(this.state.ed.draft?'published':'updated'), action:'Dismiss'}});
+    }, 1500);
+  }
+
+  // ---------- delete / dialogs ----------
+  askDelete(p){ this.update({deleteTarget:p, dialog:'delete'}); }
+  confirmDelete(){
+    const t=this.state.deleteTarget;
+    this.update({posts:this.state.posts.filter(p=>p.id!==t.id), dialog:null, deleteTarget:null,
+      banner:{type:'neutral',text:'Draft deleted.',action:'Dismiss'}});
+  }
+  cancelDialog(){ this.update({dialog:null}); }
+  confirmDiscard(){ this.update({dialog:null}); this.goHome(); }
+  scrimClick(){ if(this.state.dialog==='push'||this.state.dialog==='image') this.update({dialog:null, headingFlyout:false}); }
+
+  // ---------- settings ----------
+  setField(k,v){ this.setState(s=>({settings:{...s.settings,[k]:v}})); }
+  togglePat(){ this.update({patReveal:!this.state.patReveal}); }
+  toggleAppLock(){ this.update({appLock:!this.state.appLock}); }
+  setTheme(t){ this.update({theme:t}); }
+  setAccent(a){ this.update({accent:a}); }
+
+  componentDidMount(){
+    if(window.matchMedia){
+      this._mq = window.matchMedia('(prefers-color-scheme: dark)');
+      this._mqL = ()=>{ if(this.state.theme==='system') this.forceUpdate(); };
+      this._mq.addEventListener && this._mq.addEventListener('change', this._mqL);
+    }
+  }
+  componentWillUnmount(){ if(this._mq && this._mqL) this._mq.removeEventListener && this._mq.removeEventListener('change', this._mqL); }
+
+  // ---------- markdown ----------
+  renderMd(src){
+    const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const inl=t=>{
+      t=esc(t);
+      t=t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<span style="display:block;margin:10px 0;"><span style="display:block;background:var(--surfaceHigh);border:1px dashed var(--outline);border-radius:10px;padding:22px;text-align:center;font-family:Roboto Mono,monospace;font-size:12px;color:var(--onSurfaceVar);">▢ image · $1</span></span>');
+      t=t.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" style="color:var(--primary);text-decoration:underline;">$1</a>');
+      t=t.replace(/`([^`]+)`/g,'<code style="font-family:Roboto Mono,monospace;background:var(--surfaceHigh);padding:1.5px 6px;border-radius:5px;font-size:.88em;">$1</code>');
+      t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      t=t.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+      return t;
+    };
+    const lines=(src||'').split('\n'); let html=''; let i=0; let inUl=false;
+    const closeUl=()=>{ if(inUl){ html+='</ul>'; inUl=false; } };
+    while(i<lines.length){
+      let ln=lines[i];
+      if(/^```/.test(ln)){
+        closeUl(); i++; let code='';
+        while(i<lines.length && !/^```/.test(lines[i])){ code+=lines[i]+'\n'; i++; }
+        i++;
+        html+='<pre style="background:var(--surfaceLow);border:1px solid var(--outlineVar);border-radius:12px;padding:13px 15px;overflow-x:auto;font-family:Roboto Mono,monospace;font-size:13px;line-height:1.6;margin:12px 0;">'+esc(code.replace(/\n$/,''))+'</pre>';
+        continue;
+      }
+      const h=ln.match(/^(#{1,6})\s+(.*)$/);
+      if(h){ closeUl(); const lv=h[1].length; const sz=[0,26,22,19,17,15,14][lv]; const mt=lv<=2?'18px':'14px';
+        html+='<div style="font-weight:700;font-size:'+sz+'px;margin:'+mt+' 0 8px;letter-spacing:-.3px;line-height:1.25;">'+inl(h[2])+'</div>'; i++; continue; }
+      if(/^>\s?/.test(ln)){ closeUl(); html+='<blockquote style="border-left:3px solid var(--primary);padding:2px 0 2px 14px;margin:10px 0;color:var(--onSurfaceVar);">'+inl(ln.replace(/^>\s?/,''))+'</blockquote>'; i++; continue; }
+      if(/^[-*]\s+/.test(ln)){ if(!inUl){ html+='<ul style="margin:8px 0;padding-left:22px;">'; inUl=true; } html+='<li style="margin:3px 0;">'+inl(ln.replace(/^[-*]\s+/,''))+'</li>'; i++; continue; }
+      if(/^\s*$/.test(ln)){ closeUl(); i++; continue; }
+      closeUl(); html+='<p style="margin:9px 0;">'+inl(ln)+'</p>'; i++;
+    }
+    closeUl();
+    return html;
+  }
+
+  renderVals(){
+    const st=this.state; const ed=st.ed; const rt=this.resolveTheme();
+    const q=st.search.trim().toLowerCase();
+    const match=p=> !q || p.title.toLowerCase().includes(q) || (p.body||'').toLowerCase().includes(q);
+    const decorate=p=>({ ...p,
+      local: !p.synced,
+      meta: this.fmtDate(p.date)+(p.synced?'':'  ·  not pushed'),
+      onOpen: ()=>this.openPost(p.id),
+      onDelete: (e)=>{ e&&e.stopPropagation&&e.stopPropagation(); this.askDelete(p); },
+      onViewLive: (e)=>{ e&&e.stopPropagation&&e.stopPropagation(); this.update({banner:{type:'ok',text:'Opening '+st.settings.blogUrl+'/'+p.slug,action:'Dismiss'}, screen:'home'}); }
+    });
+    const draftPosts = st.posts.filter(p=>p.draft && match(p)).map(decorate);
+    const pubPosts = st.posts.filter(p=>!p.draft && match(p)).map(decorate);
+
+    const isEmpty = st.homeState==='empty';
+    const showList = !isEmpty;
+
+    // accent swatches
+    const sw={ indigo:'#5B61E6', green:'#0E9B85', amber:'#C97A00', violet:'#7A52D8' };
+    const accents = ['indigo','green','amber','violet'].map(k=>({
+      label:k, color:sw[k],
+      ring: st.accent===k ? '0 0 0 2px var(--surface),0 0 0 4px '+sw[k] : '0 0 0 1px rgba(0,0,0,.12)',
+      onSelect:()=>this.setAccent(k)
+    }));
+
+    const segOn='background:var(--primary);color:var(--onPrimary);';
+    const segOff='background:transparent;color:var(--onSurfaceVar);';
+    const stOn='background:var(--primary);color:var(--onPrimary);';
+    const stOff='color:var(--onSurfaceVar);';
+
+    // banner
+    const b=st.banner;
+    const bannerMap={ ok:['var(--successCont)','var(--onSuccessCont)'], warn:['var(--warnCont)','var(--onWarnCont)'], neutral:['var(--surfaceHigh)','var(--onSurface)'] };
+    const bc = b ? (bannerMap[b.type]||bannerMap.neutral) : ['',''];
+
+    // editor derived
+    const edTitle=ed?ed.title:''; const edBody=ed?ed.body:''; const edFm=ed?ed.fm:'';
+    const wordCount = (edBody.trim()? edBody.trim().split(/\s+/).length : 0);
+
+    // push dialog content
+    const pushNew = ed && ed.isNew;
+    const pushPath = ed ? (st.settings.content+'/'+(ed.slug||this.slugify(ed.title)||'untitled')+'.md') : '';
+    const commitMsg = ed ? ('New post: '+(ed.title||'Untitled')) : '';
+    let diffLines=[]; let diffLabel='';
+    if(ed){
+      if(pushNew){
+        diffLabel='New file — full contents';
+        const head=['---','title: "'+(ed.title||'Untitled')+'"','slug: "'+(ed.slug||this.slugify(ed.title))+'"','draft: '+ed.draft, ...ed.fm.split('\n'), '---'];
+        diffLines = head.map(t=>({text:'+ '+t, bg:'color-mix(in srgb, var(--success) 14%, transparent)', fg:'var(--success)'}))
+          .concat(ed.body.split('\n').slice(0,4).map(t=>({text:'+ '+t, bg:'color-mix(in srgb, var(--success) 14%, transparent)', fg:'var(--success)'})));
+      } else {
+        diffLabel='Changes vs. GitHub';
+        diffLines=[
+          {text:'  ---', bg:'transparent', fg:'var(--onSurfaceVar)'},
+          {text:'  title: "'+ed.title+'"', bg:'transparent', fg:'var(--onSurfaceVar)'},
+          {text:'- draft: true', bg:'color-mix(in srgb, #BA1A1A 14%, transparent)', fg:'#d24b4b'},
+          {text:'+ draft: '+ed.draft, bg:'color-mix(in srgb, var(--success) 14%, transparent)', fg:'var(--success)'},
+          {text:'  ---', bg:'transparent', fg:'var(--onSurfaceVar)'},
+          {text:'+ '+(ed.body.split('\n')[0]||''), bg:'color-mix(in srgb, var(--success) 14%, transparent)', fg:'var(--success)'}
+        ];
+      }
+    }
+
+    const imageSizes=[
+      {label:'Small', px:'480px', box:'22px', onPick:()=>this.insertImage('Small')},
+      {label:'Medium', px:'768px', box:'30px', onPick:()=>this.insertImage('Medium')},
+      {label:'Large', px:'1200px', box:'40px', onPick:()=>this.insertImage('Large')}
+    ];
+
+    const headings=[1,2,3,4,5,6].map(n=>({ label:'Heading '+n, hash:'#'.repeat(n), size:(20-n)+'px', onPick:()=>this.applyHeading(n) }));
+
+    const homeStates=['normal','empty','error','offline'].map(k=>({
+      label:{normal:'Normal',empty:'Empty',error:'Fetch error',offline:'Offline'}[k],
+      style: st.homeState===k ? 'background:var(--primary);color:var(--onPrimary);' : 'background:var(--surfaceCont);color:var(--onSurface);',
+      onSelect:()=>this.setHomeState(k)
+    }));
+
+    return {
+      resolvedTheme:rt, accent:st.accent,
+      isHome: st.screen==='home', isEditor: st.screen==='editor', isSettings: st.screen==='settings',
+
+      // theme/accent controls
+      setThemeLight:()=>this.setTheme('light'), setThemeDark:()=>this.setTheme('dark'), setThemeSystem:()=>this.setTheme('system'),
+      segLight: st.theme==='light'?segOn:segOff, segDark: st.theme==='dark'?segOn:segOff, segSystem: st.theme==='system'?segOn:segOff,
+      stLight: st.theme==='light'?stOn:stOff, stDark: st.theme==='dark'?stOn:stOff, stSystem: st.theme==='system'?stOn:stOff,
+      accents, homeStates,
+
+      // home
+      openSettings:()=>this.openSettings(), newPost:()=>this.newPost(), refresh:()=>this.refresh(),
+      refreshing:st.refreshing, refreshSpin: st.refreshing?'animation:spin .9s linear infinite;':'',
+      search:st.search, onSearch:(e)=>this.onSearch(e), hasSearch:!!st.search, clearSearch:()=>this.clearSearch(),
+      draftOpen:st.draftOpen, pubOpen:st.pubOpen, toggleDraft:()=>this.toggleDraft(), togglePublished:()=>this.togglePublished(),
+      draftRot: st.draftOpen?'0deg':'-90deg', pubRot: st.pubOpen?'0deg':'-90deg',
+      draftPosts, publishedPosts:pubPosts, draftCount:draftPosts.length, pubCount:pubPosts.length,
+      isEmpty, showList,
+      showBanner:!!b, bannerText:b?b.text:'', bannerAction:b?b.action:'', bannerBg:bc[0], bannerFg:bc[1], dismissBanner:()=>this.dismissBanner(),
+
+      // editor
+      edTitleLabel: ed&&ed.isNew?'New post':'Edit post',
+      edTitle, edBody, edFmText:edFm, edSlug: (ed&&(ed.slug||this.slugify(ed.title)))||'—',
+      edSlugFrozen: ed?ed.slugFrozen:false,
+      edFmOpen: ed?ed.fmOpen:false, fmRot: ed&&ed.fmOpen?'0deg':'-90deg',
+      edPreview: ed?ed.preview:false, edNotPreview: ed?!ed.preview:true,
+      edEditSeg: ed&&!ed.preview?segOn:segOff, edPrevSeg: ed&&ed.preview?segOn:segOff,
+      onEdTitle:(e)=>this.onEdTitle(e), onTitleBlur:()=>this.onTitleBlur(), onEdBody:(e)=>this.onEdBody(e), onEdFm:(e)=>this.onEdFm(e),
+      toggleFm:()=>this.toggleFm(), showEdit:()=>this.showEdit(), showPreview:()=>this.showPreview(),
+      bodyRef:this.bodyRef, attemptBack:()=>this.attemptBack(), goHome:()=>this.goHome(),
+      fmtBold:()=>this.fmtBold(), fmtItalic:()=>this.fmtItalic(), fmtLink:()=>this.fmtLink(), openImage:()=>this.openImage(),
+      toggleHeading:()=>this.toggleHeading(), edHeadingFlyout:st.headingFlyout, headings,
+      hBtnStyle: st.headingFlyout?'background:var(--primaryCont);color:var(--onPrimaryCont);':'color:var(--onSurface);',
+      wordCount,
+      saveLocal:()=>this.saveLocal(), startPublish:()=>this.startPublish(),
+      previewNode: React.createElement('div',{dangerouslySetInnerHTML:{__html:this.renderMd(edBody)}}),
+
+      // dialogs
+      hasDialog: !!st.dialog,
+      dlgDraftFlip: st.dialog==='draftFlip', dlgPush: st.dialog==='push', dlgImage: st.dialog==='image',
+      dlgDelete: st.dialog==='delete', dlgDiscard: st.dialog==='discard',
+      keepDraft:()=>this.keepDraft(), confirmDraftFlip:()=>this.confirmDraftFlip(),
+      cancelDialog:()=>this.cancelDialog(), confirmPush:()=>this.confirmPush(), scrimClick:()=>this.scrimClick(),
+      pushing:st.pushing, notPushing:!st.pushing, pushBtnLabel: pushNew?'Push to GitHub':'Push changes',
+      pushTitle: pushNew?'Confirm new post':'Confirm push', pushPath, commitMsg, diffLabel, diffLines,
+      imageSizes, insertImage:(s)=>this.insertImage(s),
+      confirmDelete:()=>this.confirmDelete(), deleteTitle: st.deleteTarget?st.deleteTarget.title:'',
+      confirmDiscard:()=>this.confirmDiscard(),
+
+      // settings
+      patReveal:st.patReveal, patHidden:!st.patReveal, togglePat:()=>this.togglePat(),
+      patDisplay: st.patReveal? st.settings.pat : '••••••••••••••••••',
+      sRepo:st.settings.repo, sBranch:st.settings.branch, sContent:st.settings.content,
+      sImgPath:st.settings.imgPath, sImgUrl:st.settings.imgUrl, sBlogUrl:st.settings.blogUrl, sFmTemplate:st.settings.fmTemplate,
+      onSRepo:(e)=>this.setField('repo',e.target.value), onSBranch:(e)=>this.setField('branch',e.target.value),
+      onSContent:(e)=>this.setField('content',e.target.value), onSImgPath:(e)=>this.setField('imgPath',e.target.value),
+      onSImgUrl:(e)=>this.setField('imgUrl',e.target.value), onSBlogUrl:(e)=>this.setField('blogUrl',e.target.value),
+      onSFmTemplate:(e)=>this.setField('fmTemplate',e.target.value),
+      appLock:st.appLock, toggleAppLock:()=>this.toggleAppLock(),
+      lockTrackBg: st.appLock?'var(--primary)':'var(--surfaceHighest)',
+      lockKnobBg: st.appLock?'var(--onPrimary)':'var(--outline)',
+      lockKnobX: st.appLock?'23px':'3px'
+    };
+  }
+}
+</script>
+</body>
+</html>
