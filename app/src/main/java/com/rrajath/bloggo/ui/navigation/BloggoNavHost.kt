@@ -45,6 +45,11 @@ fun BloggoNavHost(navController: NavHostController) {
             EditorScreen(
                 postId = postId,
                 onBack = { navController.popBackStack() },
+                onPublish = { post ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("published_post", post)
+                    navController.popBackStack()
+                },
+                onInsertImage = { /* M10 */ },
             )
         }
         composable(Routes.SETTINGS) {
