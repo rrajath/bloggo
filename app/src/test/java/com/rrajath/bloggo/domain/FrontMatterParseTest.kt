@@ -36,13 +36,13 @@ class FrontMatterParseTest {
 
         assertThat(result.title).isNull()
         assertThat(result.slug).isNull()
-        assertThat(result.draft).isTrue()
+        assertThat(result.draft).isFalse()
         assertThat(result.rawFrontMatter).isEmpty()
         assertThat(result.body).isEqualTo("Just some body text without front matter.")
     }
 
     @Test
-    fun parse_missingDraft_defaultsToTrue() {
+    fun parse_missingDraft_defaultsToFalse() {
         val content = """
             ---
             title: "No Draft Field"
@@ -54,7 +54,7 @@ class FrontMatterParseTest {
 
         val result = FrontMatter.parse(content)
 
-        assertThat(result.draft).isTrue()
+        assertThat(result.draft).isFalse()
     }
 
     @Test
@@ -158,5 +158,101 @@ class FrontMatterParseTest {
         val result = FrontMatter.parse(content)
 
         assertThat(result.rawFrontMatter).isEmpty()
+    }
+
+    @Test
+    fun parse_tomlFrontMatter_extractsAllFields() {
+        val content = """
+            +++
+            title = "My TOML Post"
+            slug = "my-toml-post"
+            draft = false
+            date = 2026-06-21
+            tags = ["nginx", "devops"]
+            summary = "One domain, many services."
+            +++
+
+            Body text here.
+        """.trimIndent()
+
+        val result = FrontMatter.parse(content)
+
+        assertThat(result.title).isEqualTo("My TOML Post")
+        assertThat(result.slug).isEqualTo("my-toml-post")
+        assertThat(result.draft).isFalse()
+        assertThat(result.body).contains("Body text here.")
+    }
+
+    @Test
+    fun parse_tomlFrontMatter_missingDraft_defaultsToFalse() {
+        val content = """
+            +++
+            title = "No Draft TOML"
+            slug = "no-draft-toml"
+            +++
+
+            Body.
+        """.trimIndent()
+
+        val result = FrontMatter.parse(content)
+
+        assertThat(result.draft).isFalse()
+    }
+
+    @Test
+    fun parse_tomlFrontMatter_draftTrue() {
+        val content = """
+            +++
+            title = "Draft Post"
+            slug = "draft-post"
+            draft = true
+            +++
+
+            Body.
+        """.trimIndent()
+
+        val result = FrontMatter.parse(content)
+
+        assertThat(result.draft).isTrue()
+    }
+
+    @Test
+    fun parse_tomlFrontMatter_preservesNonOwnedKeys() {
+        val content = """
+            +++
+            title = "T"
+            slug = "t"
+            draft = true
+            date = 2026-06-21
+            tags = ["a", "b"]
+            +++
+
+            Body.
+        """.trimIndent()
+
+        val result = FrontMatter.parse(content)
+
+        assertThat(result.rawFrontMatter).contains("date:")
+        assertThat(result.rawFrontMatter).contains("tags:")
+    }
+
+    @Test
+    fun parse_tomlFrontMatter_excludesOwnedKeys() {
+        val content = """
+            +++
+            title = "T"
+            slug = "t"
+            draft = true
+            date = 2026-06-21
+            +++
+
+            Body.
+        """.trimIndent()
+
+        val result = FrontMatter.parse(content)
+
+        assertThat(result.rawFrontMatter).doesNotContain("title:")
+        assertThat(result.rawFrontMatter).doesNotContain("slug:")
+        assertThat(result.rawFrontMatter).doesNotContain("draft:")
     }
 }

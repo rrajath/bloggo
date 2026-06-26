@@ -25,6 +25,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): BloggoDatabase =
         Room.databaseBuilder(context, BloggoDatabase::class.java, "bloggo.db")
+            .addMigrations(BloggoDatabase.MIGRATION_1_2)
             .build()
 
     @Provides

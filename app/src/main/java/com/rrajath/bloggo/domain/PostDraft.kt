@@ -10,6 +10,7 @@ data class PostDraft(
     val draft: Boolean = true,
     val slugAutoDerive: Boolean = true,
     val rawFrontMatter: String = "",
+    val postDate: String? = null,
     val body: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
 ) {

@@ -14,6 +14,7 @@ data class PostDraftEntity(
     val draft: Boolean,
     val slugAutoDerive: Boolean,
     val rawFrontMatter: String,
+    val postDate: String?,
     val body: String,
     val updatedAt: Long,
 )

@@ -26,6 +26,7 @@ fun ParseResult.toPostDraft(
         draft = draft,
         slugAutoDerive = false,
         rawFrontMatter = rawFrontMatter,
+        postDate = date ?: lastmod,
         body = body,
     )
 }

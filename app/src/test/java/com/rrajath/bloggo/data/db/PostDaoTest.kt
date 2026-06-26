@@ -50,6 +50,7 @@ class PostDaoTest {
         draft = draft,
         slugAutoDerive = true,
         rawFrontMatter = "date: 2026-06-21",
+        postDate = "2026-06-21",
         body = "Body text.",
         updatedAt = System.currentTimeMillis(),
     )

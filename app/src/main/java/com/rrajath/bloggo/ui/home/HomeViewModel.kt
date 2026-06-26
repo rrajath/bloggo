@@ -109,10 +109,10 @@ class HomeViewModel @Inject constructor(
 
     private fun partitionPosts(posts: List<PostDraft>): Pair<List<PostRow>, List<PostRow>> {
         val draft = posts.filter { it.section() == HomeSection.DRAFT }
-            .sortedByDescending { it.updatedAt }
+            .sortedByDescending { parsePostDateInstant(it) }
             .map { it.toPostRow() }
         val published = posts.filter { it.section() == HomeSection.PUBLISHED }
-            .sortedByDescending { it.updatedAt }
+            .sortedByDescending { parsePostDateInstant(it) }
             .map { it.toPostRow() }
         return draft to published
     }

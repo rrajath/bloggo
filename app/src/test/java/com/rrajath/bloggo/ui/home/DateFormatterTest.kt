@@ -83,8 +83,35 @@ class DateFormatterTest {
             localId = "1",
             syncState = SyncState.LOCAL_ONLY,
             rawFrontMatter = "",
+            updatedAt = 0L,
         )
         val meta = buildMetaText(post)
         assertThat(meta).isEqualTo("  ·  not pushed")
+    }
+
+    @Test
+    fun formatPostDate_noDateField_usesUpdatedAtFallback() {
+        val fm = "tags: [a, b]"
+        val result = formatPostDate(fm, 1750294440000L)
+        assertThat(result).isNotEmpty()
+    }
+
+    @Test
+    fun parsePostDateInstant_noDateField_usesUpdatedAtFallback() {
+        val fm = "tags: [a, b]"
+        val result = parsePostDateInstant(fm, 1750294440000L)
+        assertThat(result).isEqualTo(1750294440000L)
+    }
+
+    @Test
+    fun formatPostDate_lastmodField_usedAsFallback() {
+        val fm = "lastmod: 2026-06-21"
+        assertThat(formatPostDate(fm)).isEqualTo("Jun 21, 2026")
+    }
+
+    @Test
+    fun parsePostDateInstant_lastmodField_usedAsFallback() {
+        val fm = "lastmod: 2026-06-21"
+        assertThat(parsePostDateInstant(fm)).isGreaterThan(0L)
     }
 }

@@ -15,6 +15,7 @@ fun PostDraftEntity.toDomain(): PostDraft = PostDraft(
     draft = draft,
     slugAutoDerive = slugAutoDerive,
     rawFrontMatter = rawFrontMatter,
+    postDate = postDate,
     body = body,
     updatedAt = updatedAt,
 )
@@ -29,6 +30,7 @@ fun PostDraft.toEntity(): PostDraftEntity = PostDraftEntity(
     draft = draft,
     slugAutoDerive = slugAutoDerive,
     rawFrontMatter = rawFrontMatter,
+    postDate = postDate,
     body = body,
     updatedAt = updatedAt,
 )

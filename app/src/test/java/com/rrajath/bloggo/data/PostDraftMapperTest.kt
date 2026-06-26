@@ -21,6 +21,7 @@ class PostDraftMapperTest {
             draft = false,
             slugAutoDerive = false,
             rawFrontMatter = "date: 2026-06-21",
+            postDate = "2026-06-21",
             body = "Body text.",
             updatedAt = 1000L,
         )
@@ -83,6 +84,7 @@ class PostDraftMapperTest {
             draft = true,
             slugAutoDerive = true,
             rawFrontMatter = "",
+            postDate = null,
             body = "",
             updatedAt = 500L,
         )

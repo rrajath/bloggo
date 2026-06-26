@@ -31,6 +31,7 @@ class PostRepositoryTest {
         slug = "test-post",
         draft = true,
         rawFrontMatter = "date: 2026-06-21",
+        postDate = "2026-06-21",
         body = "Body.",
         updatedAt = 1000L,
     )
@@ -48,6 +49,7 @@ class PostRepositoryTest {
         draft = true,
         slugAutoDerive = true,
         rawFrontMatter = "date: 2026-06-21",
+        postDate = "2026-06-21",
         body = "Body.",
         updatedAt = 1000L,
     )
