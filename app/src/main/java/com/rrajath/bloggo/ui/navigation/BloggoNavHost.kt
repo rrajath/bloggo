@@ -49,7 +49,6 @@ fun BloggoNavHost(navController: NavHostController) {
                     navController.currentBackStackEntry?.savedStateHandle?.set("published_post", post)
                     navController.popBackStack()
                 },
-                onInsertImage = { /* M10 */ },
             )
         }
         composable(Routes.SETTINGS) {

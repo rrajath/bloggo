@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -107,13 +108,19 @@ fun HomeScreen(
                 onClick = onNewPost,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("New post") },
+                containerColor = androidx.compose.ui.graphics.Color(0xFFFFB868),
+                contentColor = androidx.compose.ui.graphics.Color(0xFF452100),
             )
         },
     ) { innerPadding ->
+        var draftsExpanded by remember { mutableStateOf(true) }
+        var publishedExpanded by remember { mutableStateOf(true) }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 88.dp),
         ) {
             item {
                 SearchField(
@@ -157,18 +164,22 @@ fun HomeScreen(
                         SectionHeader(
                             title = "Draft",
                             count = uiState.draftPosts.size,
+                            expanded = draftsExpanded,
+                            onToggle = { draftsExpanded = !draftsExpanded },
                         )
                     }
-                    items(
-                        items = uiState.draftPosts,
-                        key = { it.post.localId },
-                    ) { row ->
-                        PostRowCard(
-                            row = row,
-                            onClick = { onOpenPost(row.post.localId) },
-                            onDelete = { viewModel.deletePost(row.post.localId) },
-                            onViewLive = null,
-                        )
+                    if (draftsExpanded) {
+                        items(
+                            items = uiState.draftPosts,
+                            key = { it.post.localId },
+                        ) { row ->
+                            PostRowCard(
+                                row = row,
+                                onClick = { onOpenPost(row.post.localId) },
+                                onDelete = { viewModel.deletePost(row.post.localId) },
+                                onViewLive = null,
+                            )
+                        }
                     }
                 }
 
@@ -177,18 +188,22 @@ fun HomeScreen(
                         SectionHeader(
                             title = "Published",
                             count = uiState.publishedPosts.size,
+                            expanded = publishedExpanded,
+                            onToggle = { publishedExpanded = !publishedExpanded },
                         )
                     }
-                    items(
-                        items = uiState.publishedPosts,
-                        key = { it.post.localId },
-                    ) { row ->
-                        PostRowCard(
-                            row = row,
-                            onClick = { onOpenPost(row.post.localId) },
-                            onDelete = null,
-                            onViewLive = onViewLive,
-                        )
+                    if (publishedExpanded) {
+                        items(
+                            items = uiState.publishedPosts,
+                            key = { it.post.localId },
+                        ) { row ->
+                            PostRowCard(
+                                row = row,
+                                onClick = { onOpenPost(row.post.localId) },
+                                onDelete = null,
+                                onViewLive = onViewLive,
+                            )
+                        }
                     }
                 }
             }
@@ -205,12 +220,13 @@ private fun SearchField(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp)
+            .padding(top = 16.dp, bottom = 8.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -287,13 +303,22 @@ private fun HomeBanner(
 private fun SectionHeader(
     title: String,
     count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Text(
+            text = if (expanded) "▾" else "▸",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title.uppercase(),
             style = MaterialTheme.typography.labelLarge,
@@ -324,7 +349,7 @@ private fun PostRowCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp, vertical = 3.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
@@ -332,7 +357,7 @@ private fun PostRowCard(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text(
                 text = row.post.title.ifBlank { "Untitled" },
@@ -378,10 +403,7 @@ private fun PostRowCard(
                 } else {
                     Surface(
                         shape = CircleShape,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outline,
-                        ),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -427,10 +449,16 @@ private fun PostRowCard(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable(onClick = onDelete),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
+                            modifier = Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
