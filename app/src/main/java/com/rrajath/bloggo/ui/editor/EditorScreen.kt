@@ -1,30 +1,33 @@
 package com.rrajath.bloggo.ui.editor
 
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
@@ -43,29 +46,36 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rrajath.bloggo.domain.slugify
 import io.noties.markwon.Markwon
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +83,6 @@ fun EditorScreen(
     postId: String?,
     onBack: () -> Unit,
     onPublish: (com.rrajath.bloggo.domain.PostDraft) -> Unit,
-    onInsertImage: () -> Unit,
     viewModel: EditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,11 +92,20 @@ fun EditorScreen(
         viewModel.loadPost(postId)
     }
 
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is EditorEvent.NavigateBack -> onBack()
-                is EditorEvent.ShowMessage -> {}
+                is EditorEvent.NavigateBack -> {
+                    if (event.message != null) {
+                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                    }
+                    onBack()
+                }
+                is EditorEvent.ShowMessage -> {
+                    Toast.makeText(context, event.text, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -123,6 +141,7 @@ fun EditorScreen(
         topBar = {
             TopAppBar(
                 title = { Text(titleText) },
+                modifier = Modifier.statusBarsPadding(),
                 navigationIcon = {
                     IconButton(onClick = { handleBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -137,95 +156,129 @@ fun EditorScreen(
                 },
             )
         },
-        bottomBar = {
-            if (!uiState.isPreview) {
-                EditorBottomBar(
-                    wordCount = uiState.wordCount,
-                    onSaveLocal = { viewModel.saveLocal() },
-                    onPublish = {
-                        if (viewModel.canPublish()) {
-                            viewModel.startPublish()
-                        }
-                    },
-                    onBold = {
-                        bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**", "bold text")
-                        viewModel.onBodyChange(bodyFieldValue.text)
-                    },
-                    onItalic = {
-                        bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*", "italic text")
-                        viewModel.onBodyChange(bodyFieldValue.text)
-                    },
-                    onLink = {
-                        bodyFieldValue = insertLink(bodyFieldValue)
-                        viewModel.onBodyChange(bodyFieldValue.text)
-                    },
-                    onImage = onInsertImage,
-                    onHeading = { level ->
-                        bodyFieldValue = applyHeading(bodyFieldValue, level)
-                        viewModel.onBodyChange(bodyFieldValue.text)
-                    },
-                )
-            }
-        },
     ) { innerPadding ->
         if (uiState.isPreview) {
             PreviewPane(
                 body = uiState.body,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState()),
             )
         } else {
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(innerPadding),
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                // bodyHeight is derived from the stable full content area (no Scaffold
+                // bottomBar, so maxHeight doesn't change when keyboard opens).
+                // Formula keeps Save/Publish visible in the viewport when keyboard is open.
+                val bodyHeight = (maxHeight - 408.dp).coerceAtLeast(200.dp)
+                val scrollState = rememberScrollState()
+                var headerHeightPx by remember { mutableIntStateOf(0) }
+                val density = LocalDensity.current
+                val imeVisible = WindowInsets.ime.getBottom(density) > 0
 
-                OutlinedTextField(
-                    value = uiState.title,
-                    onValueChange = viewModel::onTitleChange,
-                    placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.headlineMedium,
-                    singleLine = true,
-                )
+                LaunchedEffect(imeVisible) {
+                    if (imeVisible) scrollState.animateScrollTo(headerHeightPx)
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Scrollable content — weight(1f) gives up space to the toolbar below.
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(scrollState)
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.onSizeChanged { headerHeightPx = it.height },
+                        ) {
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                SlugRow(
-                    slug = uiState.displaySlug,
-                    isFrozen = uiState.slugFrozen,
-                )
+                            OutlinedTextField(
+                                value = uiState.title,
+                                onValueChange = viewModel::onTitleChange,
+                                placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = MaterialTheme.typography.headlineMedium,
+                                singleLine = true,
+                            )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                FrontMatterCard(
-                    isOpen = uiState.isFrontMatterOpen,
-                    onToggle = viewModel::toggleFrontMatter,
-                    frontMatter = uiState.rawFrontMatter,
-                    onFrontMatterChange = viewModel::onFrontMatterChange,
-                )
+                            SlugRow(
+                                slug = uiState.displaySlug,
+                                isFrozen = uiState.slugFrozen,
+                            )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = bodyFieldValue,
-                    onValueChange = { new ->
-                        bodyFieldValue = new
-                        viewModel.onBodyChange(new.text)
-                    },
-                    placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                )
+                            FrontMatterCard(
+                                isOpen = uiState.isFrontMatterOpen,
+                                onToggle = viewModel::toggleFrontMatter,
+                                frontMatter = uiState.rawFrontMatter,
+                                onFrontMatterChange = viewModel::onFrontMatterChange,
+                                isDraft = uiState.draft,
+                                onDraftChange = viewModel::setDraft,
+                            )
 
-                Spacer(modifier = Modifier.height(80.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        OutlinedTextField(
+                            value = bodyFieldValue,
+                            onValueChange = { new ->
+                                bodyFieldValue = new
+                                viewModel.onBodyChange(new.text)
+                            },
+                            placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(bodyHeight),
+                            textStyle = MaterialTheme.typography.bodyMedium,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        SavePublishRow(
+                            onSaveLocal = { viewModel.saveLocal() },
+                            onPublish = {
+                                if (viewModel.canPublish()) viewModel.startPublish()
+                            },
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Formatting toolbar — lives outside the scroll so it sticks to the
+                    // keyboard via imePadding() without affecting bodyHeight stability.
+                    FormattingToolbar(
+                        wordCount = uiState.wordCount,
+                        onBold = {
+                            bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**", "bold text")
+                            viewModel.onBodyChange(bodyFieldValue.text)
+                        },
+                        onItalic = {
+                            bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*", "italic text")
+                            viewModel.onBodyChange(bodyFieldValue.text)
+                        },
+                        onLink = {
+                            bodyFieldValue = insertLink(bodyFieldValue)
+                            viewModel.onBodyChange(bodyFieldValue.text)
+                        },
+                        onImage = {
+                            bodyFieldValue = insertImage(bodyFieldValue)
+                            viewModel.onBodyChange(bodyFieldValue.text)
+                        },
+                        onHeading = { level ->
+                            bodyFieldValue = applyHeading(bodyFieldValue, level)
+                            viewModel.onBodyChange(bodyFieldValue.text)
+                        },
+                    )
+                }
             }
         }
     }
@@ -353,6 +406,8 @@ private fun FrontMatterCard(
     onToggle: () -> Unit,
     frontMatter: String,
     onFrontMatterChange: (String) -> Unit,
+    isDraft: Boolean,
+    onDraftChange: (Boolean) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -366,7 +421,8 @@ private fun FrontMatterCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -380,11 +436,29 @@ private fun FrontMatterCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = onToggle) {
-                    Text(if (isOpen) "▾" else "▸")
-                }
+                Text(if (isOpen) "▾" else "▸")
             }
             if (isOpen) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Draft",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                        Switch(
+                            checked = isDraft,
+                            onCheckedChange = onDraftChange,
+                            modifier = Modifier.scale(0.7f),
+                        )
+                    }
+                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 OutlinedTextField(
                     value = frontMatter,
@@ -405,8 +479,9 @@ private fun PreviewPane(
     body: String,
     modifier: Modifier = Modifier,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val markwon = remember { Markwon.create(context) }
+    val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
 
     AndroidView(
         factory = { ctx ->
@@ -418,20 +493,20 @@ private fun PreviewPane(
                 setPadding(48, 32, 48, 32)
                 textSize = 15f
                 setLineSpacing(8f, 1f)
+                setTextColor(textColor)
             }
         },
         update = { textView ->
             markwon.setMarkdown(textView, body)
+            textView.setTextColor(textColor)
         },
         modifier = modifier,
     )
 }
 
 @Composable
-private fun EditorBottomBar(
+private fun FormattingToolbar(
     wordCount: Int,
-    onSaveLocal: () -> Unit,
-    onPublish: () -> Unit,
     onBold: () -> Unit,
     onItalic: () -> Unit,
     onLink: () -> Unit,
@@ -440,11 +515,13 @@ private fun EditorBottomBar(
 ) {
     var showHeadingFlyout by remember { mutableStateOf(false) }
 
+    // imePadding() makes the Surface grow upward when the keyboard appears,
+    // so the toolbar row always sits directly above the keyboard.
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
+            .imePadding(),
     ) {
         Column {
             Row(
@@ -457,17 +534,15 @@ private fun EditorBottomBar(
                 ToolbarButton(onClick = onItalic, icon = Icons.Default.FormatItalic, desc = "Italic")
                 ToolbarButton(onClick = onLink, icon = Icons.Default.Link, desc = "Link")
                 ToolbarButton(onClick = onImage, icon = Icons.Default.Image, desc = "Image")
-                ToolbarButton(
+                TextToolbarButton(
                     onClick = { showHeadingFlyout = !showHeadingFlyout },
-                    icon = Icons.Default.Functions,
-                    desc = "Heading",
+                    label = "H",
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
                     "$wordCount words",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace,
                 )
             }
 
@@ -479,33 +554,39 @@ private fun EditorBottomBar(
                     },
                 )
             }
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onSaveLocal,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Save local")
-                }
-                Button(
-                    onClick = onPublish,
-                    modifier = Modifier.weight(1.3f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Publish")
-                }
-            }
+@Composable
+private fun SavePublishRow(
+    onSaveLocal: () -> Unit,
+    onPublish: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedButton(
+            onClick = onSaveLocal,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Save local")
+        }
+        Button(
+            onClick = onPublish,
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+            ),
+        ) {
+            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Publish")
         }
     }
 }
@@ -527,6 +608,18 @@ private fun ToolbarButton(
 }
 
 @Composable
+private fun TextToolbarButton(onClick: () -> Unit, label: String) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Text(
+            text = label,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
 private fun HeadingFlyout(
     onPick: (Int) -> Unit,
 ) {
@@ -543,6 +636,7 @@ private fun HeadingFlyout(
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    onClick = { onPick(level) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 2.dp),
@@ -618,6 +712,16 @@ private fun insertLink(value: TextFieldValue): TextFieldValue {
     val selectedText = if (start == end) "link text" else text.substring(start, end)
     val newText = text.substring(0, start) + "[$selectedText](https://)" + text.substring(end)
     val urlStart = start + selectedText.length + 3
+    return TextFieldValue(newText, TextRange(urlStart, urlStart + 8))
+}
+
+private fun insertImage(value: TextFieldValue): TextFieldValue {
+    val text = value.text
+    val start = value.selection.start
+    val end = value.selection.end
+    val selectedText = if (start == end) "alt text" else text.substring(start, end)
+    val newText = text.substring(0, start) + "![$selectedText](https://)" + text.substring(end)
+    val urlStart = start + selectedText.length + 4
     return TextFieldValue(newText, TextRange(urlStart, urlStart + 8))
 }
 
