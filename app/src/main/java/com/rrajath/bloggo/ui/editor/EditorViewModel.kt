@@ -38,7 +38,7 @@ class EditorViewModel @Inject constructor(
     private val _publishState = MutableStateFlow(PublishDialogState())
     val publishState: StateFlow<PublishDialogState> = _publishState.asStateFlow()
 
-    private val _events = MutableSharedFlow<EditorEvent>()
+    private val _events = MutableSharedFlow<EditorEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<EditorEvent> = _events.asSharedFlow()
 
     private var postDraft: PostDraft? = null
