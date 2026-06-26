@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.rrajath.bloggo.data.Settings
 import com.rrajath.bloggo.data.SettingsRepository
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,8 +46,6 @@ class SettingsViewModelTest {
             val settings = awaitItem()
             assertThat(settings.branch).isEqualTo("main")
             assertThat(settings.theme).isEqualTo(ThemeMode.SYSTEM)
-            assertThat(settings.accent).isEqualTo(Accent.INDIGO)
-            assertThat(settings.appLock).isFalse()
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -123,21 +120,5 @@ class SettingsViewModelTest {
         vm.saveTheme(ThemeMode.DARK)
         advanceUntilIdle()
         coVerify { settingsRepository.saveTheme(ThemeMode.DARK) }
-    }
-
-    @Test
-    fun saveAccent_delegatesToRepository() = runTest {
-        val vm = SettingsViewModel(settingsRepository)
-        vm.saveAccent(Accent.GREEN)
-        advanceUntilIdle()
-        coVerify { settingsRepository.saveAccent(Accent.GREEN) }
-    }
-
-    @Test
-    fun saveAppLock_delegatesToRepository() = runTest {
-        val vm = SettingsViewModel(settingsRepository)
-        vm.saveAppLock(true)
-        advanceUntilIdle()
-        coVerify { settingsRepository.saveAppLock(true) }
     }
 }

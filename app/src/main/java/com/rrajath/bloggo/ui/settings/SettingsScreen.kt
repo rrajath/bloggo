@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,10 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -144,20 +142,6 @@ fun SettingsScreen(
                     selected = settings.theme,
                     onSelect = viewModel::saveTheme,
                 )
-                SettingsDivider()
-                AccentSelector(
-                    selected = settings.accent,
-                    onSelect = viewModel::saveAccent,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SettingsSection(title = "Security") {
-                AppLockRow(
-                    enabled = settings.appLock,
-                    onToggle = viewModel::saveAppLock,
-                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -204,6 +188,10 @@ private fun SettingsTextField(
     onValueChange: (String) -> Unit,
     placeholder: String = "",
 ) {
+    var local by remember { mutableStateOf(value) }
+    LaunchedEffect(value) {
+        if (local != value) local = value
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
@@ -212,8 +200,11 @@ private fun SettingsTextField(
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = local,
+            onValueChange = {
+                local = it
+                onValueChange(it)
+            },
             placeholder = { Text(placeholder, fontFamily = FontFamily.Monospace) },
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodyMedium,
@@ -229,6 +220,10 @@ private fun SettingsPasswordField(
     onValueChange: (String) -> Unit,
 ) {
     var revealed by remember { mutableStateOf(false) }
+    var local by remember { mutableStateOf(value) }
+    LaunchedEffect(value) {
+        if (local != value) local = value
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -238,8 +233,11 @@ private fun SettingsPasswordField(
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = local,
+            onValueChange = {
+                local = it
+                onValueChange(it)
+            },
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             singleLine = true,
@@ -267,6 +265,10 @@ private fun SettingsMultilineField(
     onValueChange: (String) -> Unit,
     helper: String? = null,
 ) {
+    var local by remember { mutableStateOf(value) }
+    LaunchedEffect(value) {
+        if (local != value) local = value
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
@@ -282,8 +284,11 @@ private fun SettingsMultilineField(
         }
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = local,
+            onValueChange = {
+                local = it
+                onValueChange(it)
+            },
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodySmall,
             minLines = 4,
@@ -325,74 +330,5 @@ private fun ThemeSelector(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AccentSelector(
-    selected: Accent,
-    onSelect: (Accent) -> Unit,
-) {
-    val colors = mapOf(
-        Accent.INDIGO to MaterialTheme.colorScheme.primary,
-        Accent.GREEN to MaterialTheme.colorScheme.primary,
-        Accent.AMBER to MaterialTheme.colorScheme.primary,
-        Accent.VIOLET to MaterialTheme.colorScheme.primary,
-    )
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Accent",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Accent.entries.forEach { accent ->
-                val isSelected = accent == selected
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(if (isSelected) 28.dp else 24.dp),
-                    onClick = { onSelect(accent) },
-                ) {}
-                Text(
-                    text = accent.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AppLockRow(
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "App lock",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text = "Biometric unlock · token is write-capable",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(
-            checked = enabled,
-            onCheckedChange = onToggle,
-        )
     }
 }

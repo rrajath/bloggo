@@ -9,7 +9,6 @@ import com.rrajath.bloggo.data.network.TreeItem
 import com.rrajath.bloggo.data.network.TreeResponse
 import com.rrajath.bloggo.domain.PostDraft
 import com.rrajath.bloggo.domain.SyncState
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import io.mockk.coEvery
 import io.mockk.coVerify

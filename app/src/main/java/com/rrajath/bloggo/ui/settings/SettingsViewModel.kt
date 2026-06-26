@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rrajath.bloggo.data.Settings
 import com.rrajath.bloggo.data.SettingsRepository
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,13 +58,5 @@ class SettingsViewModel @Inject constructor(
 
     fun saveTheme(theme: ThemeMode) = viewModelScope.launch {
         settingsRepository.saveTheme(theme)
-    }
-
-    fun saveAccent(accent: Accent) = viewModelScope.launch {
-        settingsRepository.saveAccent(accent)
-    }
-
-    fun saveAppLock(enabled: Boolean) = viewModelScope.launch {
-        settingsRepository.saveAppLock(enabled)
     }
 }

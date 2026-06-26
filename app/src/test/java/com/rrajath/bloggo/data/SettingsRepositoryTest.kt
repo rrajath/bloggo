@@ -4,7 +4,6 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -50,8 +49,6 @@ class SettingsRepositoryTest {
         assertThat(settings.branch).isEqualTo("main")
         assertThat(settings.contentPath).isEqualTo("content/posts")
         assertThat(settings.theme).isEqualTo(ThemeMode.SYSTEM)
-        assertThat(settings.accent).isEqualTo(Accent.INDIGO)
-        assertThat(settings.appLock).isFalse()
     }
 
     @Test
@@ -97,22 +94,6 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun saveAccent_andReadBack() = runTest {
-        repository.saveAccent(Accent.GREEN)
-        val settings = repository.settings.first()
-
-        assertThat(settings.accent).isEqualTo(Accent.GREEN)
-    }
-
-    @Test
-    fun saveAppLock_andReadBack() = runTest {
-        repository.saveAppLock(true)
-        val settings = repository.settings.first()
-
-        assertThat(settings.appLock).isTrue()
-    }
-
-    @Test
     fun saveAll_persistsAllFields() = runTest {
         val settings = Settings(
             githubPat = "ghp_token",
@@ -124,8 +105,6 @@ class SettingsRepositoryTest {
             blogBaseUrl = "https://blog.me.dev",
             frontMatterTemplate = "date: {date}\ntags: []",
             theme = ThemeMode.LIGHT,
-            accent = Accent.AMBER,
-            appLock = true,
         )
 
         repository.saveAll(settings)

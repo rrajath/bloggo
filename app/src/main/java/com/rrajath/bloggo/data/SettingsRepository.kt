@@ -2,10 +2,8 @@ package com.rrajath.bloggo.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,8 +24,6 @@ class SettingsRepository @Inject constructor(
         private val BLOG_BASE_URL = stringPreferencesKey("blog_base_url")
         private val FM_TEMPLATE = stringPreferencesKey("fm_template")
         private val THEME = stringPreferencesKey("theme")
-        private val ACCENT = stringPreferencesKey("accent")
-        private val APP_LOCK = booleanPreferencesKey("app_lock")
     }
 
     val settings: Flow<Settings> = dataStore.data.map { prefs ->
@@ -41,8 +37,6 @@ class SettingsRepository @Inject constructor(
             blogBaseUrl = prefs[BLOG_BASE_URL] ?: "",
             frontMatterTemplate = prefs[FM_TEMPLATE] ?: "date: {date}\ntags: []\nsummary: \"\"",
             theme = prefs[THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
-            accent = prefs[ACCENT]?.let { runCatching { Accent.valueOf(it) }.getOrNull() } ?: Accent.INDIGO,
-            appLock = prefs[APP_LOCK] ?: false,
         )
     }
 
@@ -74,12 +68,6 @@ class SettingsRepository @Inject constructor(
     suspend fun saveTheme(value: ThemeMode) =
         dataStore.edit { it[THEME] = value.name }
 
-    suspend fun saveAccent(value: Accent) =
-        dataStore.edit { it[ACCENT] = value.name }
-
-    suspend fun saveAppLock(value: Boolean) =
-        dataStore.edit { it[APP_LOCK] = value }
-
     suspend fun saveAll(settings: Settings) {
         savePat(settings.githubPat)
         dataStore.edit { prefs ->
@@ -91,8 +79,6 @@ class SettingsRepository @Inject constructor(
             prefs[BLOG_BASE_URL] = settings.blogBaseUrl
             prefs[FM_TEMPLATE] = settings.frontMatterTemplate
             prefs[THEME] = settings.theme.name
-            prefs[ACCENT] = settings.accent.name
-            prefs[APP_LOCK] = settings.appLock
         }
     }
 }

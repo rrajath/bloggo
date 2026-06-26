@@ -1,6 +1,5 @@
 package com.rrajath.bloggo.data
 
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 
 data class Settings(
@@ -13,8 +12,6 @@ data class Settings(
     val blogBaseUrl: String = "",
     val frontMatterTemplate: String = "date: {date}\ntags: []\nsummary: \"\"",
     val theme: ThemeMode = ThemeMode.SYSTEM,
-    val accent: Accent = Accent.INDIGO,
-    val appLock: Boolean = false,
 ) {
     val isConfigured: Boolean
         get() = githubPat.isNotBlank() && repository.isNotBlank()

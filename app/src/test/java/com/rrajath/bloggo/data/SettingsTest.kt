@@ -1,7 +1,6 @@
 package com.rrajath.bloggo.data
 
 import com.google.common.truth.Truth.assertThat
-import com.rrajath.bloggo.ui.theme.Accent
 import com.rrajath.bloggo.ui.theme.ThemeMode
 import org.junit.Test
 
@@ -20,8 +19,6 @@ class SettingsTest {
         assertThat(settings.blogBaseUrl).isEmpty()
         assertThat(settings.frontMatterTemplate).contains("{date}")
         assertThat(settings.theme).isEqualTo(ThemeMode.SYSTEM)
-        assertThat(settings.accent).isEqualTo(Accent.INDIGO)
-        assertThat(settings.appLock).isFalse()
     }
 
     @Test
