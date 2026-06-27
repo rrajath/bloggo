@@ -3,7 +3,9 @@ package com.rrajath.bloggo.ui.editor
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,12 +16,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import kotlin.math.roundToInt
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -44,6 +47,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
@@ -54,17 +58,21 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -166,118 +174,222 @@ fun EditorScreen(
                     .verticalScroll(rememberScrollState()),
             )
         } else {
+            val density = LocalDensity.current
+            val imeBottomPx = WindowInsets.ime.getBottom(density)
+            val imeVisible = imeBottomPx > 0
+            val scrollState = rememberScrollState()
+
+            // Stable full-height of the content area (captured while the keyboard
+            // is hidden). The body field's minimum height is derived from this so
+            // it never shrinks when the keyboard opens.
+            var fullMaxHeight by remember { mutableStateOf(0.dp) }
+            var headerHeightPx by remember { mutableIntStateOf(0) }
+            var buttonsHeightPx by remember { mutableIntStateOf(0) }
+            var toolbarHeightPx by remember { mutableIntStateOf(0) }
+
+            // Sticky-toolbar tracking, in window coordinates.
+            var bodyTopPx by remember { mutableIntStateOf(0) }
+            var bodyHeightPx by remember { mutableIntStateOf(0) }
+            var viewportTopPx by remember { mutableIntStateOf(0) }
+
+            // When the keyboard opens, pan the page so the top of the body field
+            // rises to the top of the viewport (header scrolls out of view). The
+            // text field's own height doesn't change.
+            LaunchedEffect(imeVisible) {
+                if (imeVisible && headerHeightPx > 0) {
+                    scrollState.animateScrollTo(headerHeightPx)
+                }
+            }
+
+            val onBold: () -> Unit = {
+                bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**", "bold text")
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onItalic: () -> Unit = {
+                bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*", "italic text")
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onLink: () -> Unit = {
+                bodyFieldValue = insertLink(bodyFieldValue)
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onImage: () -> Unit = {
+                bodyFieldValue = insertImage(bodyFieldValue)
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onHeading: (Int) -> Unit = { level ->
+                bodyFieldValue = applyHeading(bodyFieldValue, level)
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .onGloballyPositioned { viewportTopPx = it.positionInWindow().y.roundToInt() },
             ) {
-                // bodyHeight is derived from the stable full content area (no Scaffold
-                // bottomBar, so maxHeight doesn't change when keyboard opens).
-                // Formula keeps Save/Publish visible in the viewport when keyboard is open.
-                val bodyHeight = (maxHeight - 408.dp).coerceAtLeast(200.dp)
-                val scrollState = rememberScrollState()
-                var headerHeightPx by remember { mutableIntStateOf(0) }
-                val density = LocalDensity.current
-                val imeVisible = WindowInsets.ime.getBottom(density) > 0
-
-                LaunchedEffect(imeVisible) {
-                    if (imeVisible) scrollState.animateScrollTo(headerHeightPx)
+                LaunchedEffect(maxHeight, imeVisible) {
+                    if (!imeVisible) fullMaxHeight = maxHeight
                 }
 
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Scrollable content — weight(1f) gives up space to the toolbar below.
+                val headerH = with(density) { headerHeightPx.toDp() }
+                val buttonsH = with(density) { buttonsHeightPx.toDp() }
+                val toolbarH = with(density) { toolbarHeightPx.toDp() }
+                // top spacer(8) + header->box(12) + box->buttons(8) + buttons internal padding(8)
+                val outerSpacers = 36.dp
+                val bodyBoxMin = (fullMaxHeight - headerH - buttonsH - outerSpacers)
+                    .coerceAtLeast(toolbarH + 1.dp + 120.dp)
+                val textMin = (bodyBoxMin - toolbarH - 1.dp).coerceAtLeast(120.dp)
+
+                val showPinnedToolbar by remember {
+                    derivedStateOf {
+                        bodyHeightPx > 0 &&
+                            bodyTopPx < viewportTopPx &&
+                            (bodyTopPx + bodyHeightPx) > viewportTopPx
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState),
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Column(
                         modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(scrollState)
-                            .padding(horizontal = 16.dp),
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .onSizeChanged { headerHeightPx = it.height },
                     ) {
-                        Column(
-                            modifier = Modifier.onSizeChanged { headerHeightPx = it.height },
-                        ) {
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            OutlinedTextField(
-                                value = uiState.title,
-                                onValueChange = viewModel::onTitleChange,
-                                placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
-                                modifier = Modifier.fillMaxWidth(),
-                                textStyle = MaterialTheme.typography.headlineMedium,
-                                singleLine = true,
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            SlugRow(
-                                slug = uiState.displaySlug,
-                                isFrozen = uiState.slugFrozen,
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            FrontMatterCard(
-                                isOpen = uiState.isFrontMatterOpen,
-                                onToggle = viewModel::toggleFrontMatter,
-                                frontMatter = uiState.rawFrontMatter,
-                                onFrontMatterChange = viewModel::onFrontMatterChange,
-                                isDraft = uiState.draft,
-                                onDraftChange = viewModel::setDraft,
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
                         OutlinedTextField(
-                            value = bodyFieldValue,
-                            onValueChange = { new ->
-                                bodyFieldValue = new
-                                viewModel.onBodyChange(new.text)
-                            },
-                            placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(bodyHeight),
-                            textStyle = MaterialTheme.typography.bodyMedium,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                            value = uiState.title,
+                            onValueChange = viewModel::onTitleChange,
+                            placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = MaterialTheme.typography.headlineMedium,
+                            singleLine = true,
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
+                        SlugRow(
+                            slug = uiState.displaySlug,
+                            isFrozen = uiState.slugFrozen,
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        FrontMatterCard(
+                            isOpen = uiState.isFrontMatterOpen,
+                            onToggle = viewModel::toggleFrontMatter,
+                            frontMatter = uiState.rawFrontMatter,
+                            onFrontMatterChange = viewModel::onFrontMatterChange,
+                            isDraft = uiState.draft,
+                            onDraftChange = viewModel::setDraft,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Body field: a single bordered box that contains the formatting
+                    // toolbar as its first row, with the editable text directly below.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .onGloballyPositioned {
+                                bodyTopPx = it.positionInWindow().y.roundToInt()
+                                bodyHeightPx = it.size.height
+                            }
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(12.dp),
+                            ),
+                    ) {
+                        Column {
+                            Box(modifier = Modifier.onSizeChanged { toolbarHeightPx = it.height }) {
+                                FormattingToolbar(
+                                    wordCount = uiState.wordCount,
+                                    onBold = onBold,
+                                    onItalic = onItalic,
+                                    onLink = onLink,
+                                    onImage = onImage,
+                                    onHeading = onHeading,
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            OutlinedTextField(
+                                value = bodyFieldValue,
+                                onValueChange = { new ->
+                                    bodyFieldValue = new
+                                    viewModel.onBodyChange(new.text)
+                                },
+                                placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = textMin),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    disabledBorderColor = Color.Transparent,
+                                ),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .onSizeChanged { buttonsHeightPx = it.height },
+                    ) {
                         SavePublishRow(
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
                             onSaveLocal = { viewModel.saveLocal() },
                             onPublish = {
                                 if (viewModel.canPublish()) viewModel.startPublish()
                             },
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Formatting toolbar — lives outside the scroll so it sticks to the
-                    // keyboard via imePadding() without affecting bodyHeight stability.
-                    FormattingToolbar(
-                        wordCount = uiState.wordCount,
-                        onBold = {
-                            bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**", "bold text")
-                            viewModel.onBodyChange(bodyFieldValue.text)
-                        },
-                        onItalic = {
-                            bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*", "italic text")
-                            viewModel.onBodyChange(bodyFieldValue.text)
-                        },
-                        onLink = {
-                            bodyFieldValue = insertLink(bodyFieldValue)
-                            viewModel.onBodyChange(bodyFieldValue.text)
-                        },
-                        onImage = {
-                            bodyFieldValue = insertImage(bodyFieldValue)
-                            viewModel.onBodyChange(bodyFieldValue.text)
-                        },
-                        onHeading = { level ->
-                            bodyFieldValue = applyHeading(bodyFieldValue, level)
-                            viewModel.onBodyChange(bodyFieldValue.text)
-                        },
-                    )
+                    // Extra scroll room so the caret can be scrolled clear of the keyboard.
+                    if (imeVisible) {
+                        Spacer(modifier = Modifier.height(with(density) { imeBottomPx.toDp() }))
+                    }
+                }
+
+                // Pinned copy of the toolbar — shown only while the body box is in
+                // view but its natural top has scrolled past the viewport top.
+                if (showPinnedToolbar) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column {
+                                FormattingToolbar(
+                                    wordCount = uiState.wordCount,
+                                    onBold = onBold,
+                                    onItalic = onItalic,
+                                    onLink = onLink,
+                                    onImage = onImage,
+                                    onHeading = onHeading,
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -515,13 +627,9 @@ private fun FormattingToolbar(
 ) {
     var showHeadingFlyout by remember { mutableStateOf(false) }
 
-    // imePadding() makes the Surface grow upward when the keyboard appears,
-    // so the toolbar row always sits directly above the keyboard.
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier
-            .fillMaxWidth()
-            .imePadding(),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
             Row(
@@ -560,11 +668,12 @@ private fun FormattingToolbar(
 
 @Composable
 private fun SavePublishRow(
+    modifier: Modifier = Modifier,
     onSaveLocal: () -> Unit,
     onPublish: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
