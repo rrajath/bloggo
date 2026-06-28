@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -24,7 +26,29 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            # If this commit already has an explicit v* tag, skip the auto-release
+            # (avoids a duplicate release when a tag is pushed alongside main)
+            EXISTING=$(git tag --points-at HEAD | grep -E '^v[0-9]' | head -1)
+            if [[ -n "$EXISTING" ]]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            TAG="v1.0.${{ github.run_number }}"
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "name=${TAG#v}" >> $GITHUB_OUTPUT
+
       - name: Build debug APK
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: ./gradlew assembleDebug
 
       - name: Decode keystore
@@ -37,6 +61,8 @@ jobs:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
         run: ./gradlew assembleRelease
 
       - name: Upload debug APK artifact
@@ -53,20 +79,11 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           retention-days: 14
 
-      - name: Compute release tag
-        id: tag
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "name=v0.1.${{ github.run_number }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        if: steps.version.outputs.skip != 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.name }}
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk

@@ -7,13 +7,13 @@
     <!--
         Roboto Bold "b." mark. Font UPM=2048, target size=50dp.
         Groups scale font coords (Y-up) into the 108dp viewBox (Y-down).
-        Baseline at y=87dp; horizontal centre at x=54dp.
+        Baseline at y=72.51dp; horizontal centre at x=54dp.
         Transform per group: scaleX=50/2048, scaleY=-(50/2048), then translate.
         "b" advance=1153 units → period translateX = 32.66 + 1153*(50/2048) = 60.81
     -->
     <group
         android:translateX="32.66"
-        android:translateY="87.0"
+        android:translateY="72.51"
         android:scaleX="0.024414"
         android:scaleY="-0.024414">
         <path
@@ -22,7 +22,7 @@
     </group>
     <group
         android:translateX="60.81"
-        android:translateY="87.0"
+        android:translateY="72.51"
         android:scaleX="0.024414"
         android:scaleY="-0.024414">
         <path
