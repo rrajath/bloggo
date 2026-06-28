@@ -4,10 +4,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FCFBFE"
-        android:pathData="M44,32 L52,32 L52,50 C56,50 63,55 63,62 C63,69 58,76 52,76 L44,76 Z" />
-    <path
-        android:fillColor="#4F5BD5"
-        android:pathData="M73,68 A4,4 0 1,1 73,76 A4,4 0 1,1 73,68 Z" />
+    <!--
+        Roboto Bold "b." mark. Font UPM=2048, target size=50dp.
+        Groups scale font coords (Y-up) into the 108dp viewBox (Y-down).
+        Baseline at y=87dp; horizontal centre at x=54dp.
+        Transform per group: scaleX=50/2048, scaleY=-(50/2048), then translate.
+        "b" advance=1153 units → period translateX = 32.66 + 1153*(50/2048) = 60.81
+    -->
+    <group
+        android:translateX="32.66"
+        android:translateY="87.0"
+        android:scaleX="0.024414"
+        android:scaleY="-0.024414">
+        <path
+            android:fillColor="#FCFBFE"
+            android:pathData="M1086 531Q1086 409 1060.0 308.0Q1034 207 981.5 134.0Q929 61 850.0 20.5Q771 -20 665 -20Q571 -20 502.5 15.5Q434 51 384 115L371 0H111V1536H400V985Q448 1041 512.5 1071.5Q577 1102 663 1102Q769 1102 848.5 1061.0Q928 1020 981.0 947.0Q1034 874 1060.0 773.0Q1086 672 1086 552ZM797 552Q797 616 788.0 673.5Q779 731 755.5 774.0Q732 817 692.0 842.0Q652 867 590 867Q517 867 471.0 837.5Q425 808 400 754V327Q425 273 471.0 243.0Q517 213 592 213Q653 213 692.5 237.0Q732 261 755.5 303.0Q779 345 788.0 403.5Q797 462 797 531Z" />
+    </group>
+    <group
+        android:translateX="60.81"
+        android:translateY="87.0"
+        android:scaleX="0.024414"
+        android:scaleY="-0.024414">
+        <path
+            android:fillColor="#FFB868"
+            android:pathData="M126 142Q126 175 137.5 203.5Q149 232 170.5 252.5Q192 273 222.0 285.0Q252 297 289 297Q326 297 356.5 285.0Q387 273 408.5 252.5Q430 232 441.5 203.5Q453 175 453 142Q453 109 441.5 81.0Q430 53 408.5 32.5Q387 12 356.5 0.5Q326 -11 289 -11Q252 -11 222.0 0.5Q192 12 170.5 32.5Q149 53 137.5 81.0Q126 109 126 142Z" />
+    </group>
 </vector>
