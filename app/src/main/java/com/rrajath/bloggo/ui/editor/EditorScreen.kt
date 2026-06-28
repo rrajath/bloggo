@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
@@ -127,6 +128,7 @@ fun EditorScreen(
 
     var showDiscardDialog by remember { mutableStateOf(false) }
     var bodyFieldValue by remember { mutableStateOf(TextFieldValue(uiState.body)) }
+    var bodyFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.body) {
         if (bodyFieldValue.text != uiState.body) {
@@ -305,7 +307,7 @@ fun EditorScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .border(
                                 width = 1.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant,
+                                color = if (bodyFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                                 shape = RoundedCornerShape(12.dp),
                             ),
                     ) {
@@ -330,7 +332,8 @@ fun EditorScreen(
                                 placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(min = textMin),
+                                    .heightIn(min = textMin)
+                                    .onFocusChanged { bodyFocused = it.isFocused },
                                 textStyle = MaterialTheme.typography.bodyMedium,
                                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                 colors = OutlinedTextFieldDefaults.colors(
