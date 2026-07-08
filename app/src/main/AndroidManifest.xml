@@ -27,6 +27,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
+    
+    <!-- Required: set your sentry.io project identifier (DSN) -->
+    <meta-data android:name="io.sentry.dsn" android:value="https://60d374cb5b27b6f80fd98dffcc6f91f2@o4504759805476864.ingest.us.sentry.io/4511701718794240" />
+
+    <!-- set up releases -->
+    <meta-data android:name="io.sentry.release" android:value="${sentryRelease}" />
+    <!-- set up sentry session tracking -->
+    <meta-data android:name="io.sentry.session-tracking.timeout-interval-millis" android:value="60000" />
+    <!-- enable automatic breadcrumbs for user interactions (clicks, swipes, scrolls) -->
+    <meta-data android:name="io.sentry.traces.user-interaction.enable" android:value="true" />
+    <!-- enable screenshot for crashes (could contain sensitive/PII data) -->
+    <meta-data android:name="io.sentry.attach-screenshot" android:value="true" />
+    <!-- enable view hierarchy for crashes -->
+    <meta-data android:name="io.sentry.attach-view-hierarchy" android:value="true" />
+
+    <!-- enable the performance API by setting a sample-rate, adjust in production env -->
+    <meta-data android:name="io.sentry.traces.sample-rate" android:value="1.0" />
+</application>
 
 </manifest>

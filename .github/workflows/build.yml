@@ -43,12 +43,13 @@ jobs:
           fi
           echo "skip=false" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "name=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Build debug APK
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_NAME: ${{ steps.version.outputs.tag }}
+          SENTRY_RELEASE: ${{ steps.version.outputs.tag }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: ./gradlew assembleDebug
 
       - name: Decode keystore
@@ -62,7 +63,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
-          VERSION_NAME: ${{ steps.version.outputs.name }}
+          VERSION_NAME: ${{ steps.version.outputs.tag }}
+          SENTRY_RELEASE: ${{ steps.version.outputs.tag }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: ./gradlew assembleRelease
 
       - name: Upload debug APK artifact
@@ -84,6 +87,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk

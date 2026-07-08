@@ -17,3 +17,6 @@ local.properties
 /.serena
 *.jks
 *.keystore
+
+# Sentry Config File
+sentry.properties
