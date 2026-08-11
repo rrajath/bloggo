@@ -240,6 +240,71 @@ class GitHubRepositoryTest {
         coVerify { postRepository.deletePost("local-1") }
     }
 
+    @Test
+    fun refresh_unchangedShaLocally_skipsContentFetch() = runTest {
+        val unchangedLocal = PostDraft(
+            localId = "local-1",
+            syncState = SyncState.SYNCED,
+            title = "Unchanged",
+            slug = "unchanged",
+            repoPath = "content/posts/unchanged.md",
+            blobSha = "sha-1",
+        )
+        coEvery { postRepository.observeAllPosts() } returns flowOf(listOf(unchangedLocal))
+
+        val treeResponse = Response.success(
+            TreeResponse(
+                tree = listOf(
+                    TreeItem(path = "content/posts/unchanged.md", mode = "100644", type = "blob", sha = "sha-1"),
+                ),
+            ),
+        )
+        coEvery { gitHubService.getTree(any(), any(), any()) } returns treeResponse
+
+        val result = repository.refresh()
+
+        assertThat(result.error).isNull()
+        coVerify(exactly = 0) { gitHubService.getContent(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { postRepository.savePost(any()) }
+    }
+
+    @Test
+    fun refresh_changedShaLocally_fetchesUpdatedContent() = runTest {
+        val staleLocal = PostDraft(
+            localId = "local-1",
+            syncState = SyncState.SYNCED,
+            title = "Stale",
+            slug = "stale",
+            repoPath = "content/posts/stale.md",
+            blobSha = "sha-old",
+        )
+        coEvery { postRepository.observeAllPosts() } returns flowOf(listOf(staleLocal))
+
+        val treeResponse = Response.success(
+            TreeResponse(
+                tree = listOf(
+                    TreeItem(path = "content/posts/stale.md", mode = "100644", type = "blob", sha = "sha-new"),
+                ),
+            ),
+        )
+        coEvery { gitHubService.getTree(any(), any(), any()) } returns treeResponse
+        coEvery { gitHubService.getContent(any(), any(), any(), any()) } returns Response.success(
+            ContentResponse(
+                content = sampleFile("Stale", "stale", false, "sha-new"),
+                encoding = "base64",
+                sha = "sha-new",
+                path = "content/posts/stale.md",
+                name = "stale.md",
+            ),
+        )
+
+        val result = repository.refresh()
+
+        assertThat(result.error).isNull()
+        coVerify(exactly = 1) { gitHubService.getContent("me", "blog", "content/posts/stale.md", "main") }
+        coVerify { postRepository.savePost(match { it.localId == "local-1" && it.blobSha == "sha-new" }) }
+    }
+
     // ── publish() ────────────────────────────────────────────────────────────
 
     @Test

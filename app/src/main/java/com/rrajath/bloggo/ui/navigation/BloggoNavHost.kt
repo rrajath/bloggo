@@ -25,8 +25,8 @@ fun BloggoNavHost(navController: NavHostController) {
                 onNewPost = { navController.navigate(Routes.editor()) },
                 onOpenPost = { postId -> navController.navigate(Routes.editor(postId)) },
                 onSettings = { navController.navigate(Routes.SETTINGS) },
-                onViewLive = { slug ->
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(slug))
+                onViewLive = { url ->
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     context.startActivity(intent)
                 },
             )

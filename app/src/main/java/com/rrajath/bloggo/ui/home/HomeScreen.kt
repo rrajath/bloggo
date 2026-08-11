@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +72,14 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is HomeEvent.OpenUrl -> onViewLive(event.url)
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -201,7 +210,7 @@ fun HomeScreen(
                                 row = row,
                                 onClick = { onOpenPost(row.post.localId) },
                                 onDelete = null,
-                                onViewLive = onViewLive,
+                                onViewLive = { slug -> viewModel.viewLive(slug) },
                             )
                         }
                     }

@@ -9,6 +9,9 @@ import com.rrajath.bloggo.domain.FrontMatter
 import com.rrajath.bloggo.domain.PostDraft
 import com.rrajath.bloggo.domain.SyncState
 import com.rrajath.bloggo.domain.toPostDraft
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import retrofit2.Response
 import java.util.Base64
@@ -58,44 +61,58 @@ class GitHubRepository @Inject constructor(
         val tree = treeResponse.body()?.tree ?: emptyList()
         val mdFiles = tree.filter { it.type == "blob" && it.path.endsWith(".md") && it.path.startsWith(contentPath) }
 
-        val remotePosts = mutableListOf<PostDraft>()
-        for (item in mdFiles) {
-            val contentResponse = try {
-                gitHubService.getContent(owner, repo, item.path, branch)
-            } catch (e: Exception) {
-                continue
-            }
+        val localPosts = postRepository.observeAllPosts().first()
+        val localByPath = localPosts.filter { it.repoPath != null }.associateBy { it.repoPath }
 
-            if (!contentResponse.isSuccessful) continue
-
-            val content = contentResponse.body()?.let { decodeContent(it) } ?: continue
-            val parsed = FrontMatter.parse(content)
-            val post = parsed.toPostDraft(
-                localId = UUID.randomUUID().toString(),
-                syncState = SyncState.SYNCED,
-            ).copy(
-                repoPath = item.path,
-                blobSha = item.sha,
-            )
-            remotePosts.add(post)
+        // The tree already gives us each file's blob SHA for free, so skip re-fetching content
+        // for posts whose SHA matches what we last synced — only new or actually-changed posts
+        // need a content call. Locally-modified posts are left untouched either way.
+        val toFetch = mdFiles.filter { item ->
+            val local = localByPath[item.path]
+            local == null || (local.syncState != SyncState.SYNCED_MODIFIED && local.blobSha != item.sha)
         }
 
-        mergeRemotePosts(remotePosts)
+        val remotePosts = coroutineScope {
+            toFetch.map { item -> async { fetchPost(owner, repo, branch, item) } }.awaitAll()
+        }.filterNotNull()
+
+        val remotePaths = mdFiles.map { it.path }.toSet()
+        mergeRemotePosts(remotePosts, remotePaths, localPosts, localByPath)
 
         return RefreshResult(
-            remotePosts = remotePosts.size,
+            remotePosts = mdFiles.size,
             mergedPosts = postRepository.count(),
         )
     }
 
-    private suspend fun mergeRemotePosts(remotePosts: List<PostDraft>) {
-        val localPosts = postRepository.observeAllPosts().first()
+    private suspend fun fetchPost(owner: String, repo: String, branch: String, item: TreeItem): PostDraft? {
+        val contentResponse = try {
+            gitHubService.getContent(owner, repo, item.path, branch)
+        } catch (e: Exception) {
+            return null
+        }
 
-        val remoteByPath = remotePosts.associateBy { it.repoPath }
-        val localByPath = localPosts.filter { it.repoPath != null }.associateBy { it.repoPath }
+        if (!contentResponse.isSuccessful) return null
 
+        val content = contentResponse.body()?.let { decodeContent(it) } ?: return null
+        val parsed = FrontMatter.parse(content)
+        return parsed.toPostDraft(
+            localId = UUID.randomUUID().toString(),
+            syncState = SyncState.SYNCED,
+        ).copy(
+            repoPath = item.path,
+            blobSha = item.sha,
+        )
+    }
+
+    private suspend fun mergeRemotePosts(
+        remotePosts: List<PostDraft>,
+        remotePaths: Set<String>,
+        localPosts: List<PostDraft>,
+        localByPath: Map<String?, PostDraft>,
+    ) {
         for (remote in remotePosts) {
-            val local = remoteByPath[remote.repoPath]?.let { null } ?: localByPath[remote.repoPath]
+            val local = localByPath[remote.repoPath]
             if (local != null) {
                 if (local.syncState == SyncState.SYNCED_MODIFIED) {
                     continue
@@ -106,7 +123,6 @@ class GitHubRepository @Inject constructor(
             }
         }
 
-        val remotePaths = remotePosts.map { it.repoPath }.toSet()
         for (local in localPosts) {
             if (local.syncState == SyncState.SYNCED && local.repoPath != null && local.repoPath !in remotePaths) {
                 postRepository.deletePost(local.localId)

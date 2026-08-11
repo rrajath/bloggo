@@ -26,3 +26,7 @@ data class BannerUi(
 )
 
 enum class BannerType { SUCCESS, WARN, NEUTRAL }
+
+sealed class HomeEvent {
+    data class OpenUrl(val url: String) : HomeEvent()
+}

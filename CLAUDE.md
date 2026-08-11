@@ -51,7 +51,7 @@ Standard Android layered architecture: UI → ViewModel → Repository → Data 
 
 ## Data Flow
 
-- **Home screen:** `HomeViewModel` observes `PostRepository.observeAllPosts()` (Room), triggers `GitHubRepository.refresh()` in background. Refresh fetches the repo tree via GitHub Trees API, fetches each `.md` file, parses front matter, and merges into Room — local `SYNCED_MODIFIED` posts are never overwritten.
+- **Home screen:** `HomeViewModel` observes `PostRepository.observeAllPosts()` (Room), triggers `GitHubRepository.refresh()` in background. Refresh fetches the repo tree via GitHub Trees API (one call, returns every file's path + blob SHA), then diffs each entry's SHA against the locally cached post's `blobSha` — only new or changed files trigger a `.md` content fetch (done in parallel), and unchanged posts are skipped entirely. Parses front matter and merges into Room — local `SYNCED_MODIFIED` posts are never overwritten.
 - **Editor:** `EditorViewModel` autosaves to `AutosaveDao` continuously. On "Publish", calls `GitHubRepository.publish()` which calls GitHub Contents API PUT with the blob SHA. On 409/422, auto-refetches SHA and retries once.
 - **Settings:** Stored in `DataStore` (non-sensitive) + `EncryptedSharedPreferences` backed by Android Keystore (PAT only). Accessed via `SettingsRepository`.
 

@@ -5,6 +5,8 @@ import com.google.common.truth.Truth.assertThat
 import com.rrajath.bloggo.data.GitHubRepository
 import com.rrajath.bloggo.data.NetworkMonitor
 import com.rrajath.bloggo.data.PostRepository
+import com.rrajath.bloggo.data.Settings
+import com.rrajath.bloggo.data.SettingsRepository
 import com.rrajath.bloggo.domain.PostDraft
 import com.rrajath.bloggo.domain.SyncState
 import io.mockk.coEvery
@@ -28,6 +30,7 @@ class HomeViewModelTest {
     private val postRepository = mockk<PostRepository>(relaxed = true)
     private val gitHubRepository = mockk<GitHubRepository>(relaxed = true)
     private val networkMonitor = mockk<NetworkMonitor>(relaxed = true)
+    private val settingsRepository = mockk<SettingsRepository>(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -55,6 +58,7 @@ class HomeViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         coEvery { postRepository.observeAllPosts() } returns flowOf(emptyList())
+        coEvery { settingsRepository.settings } returns flowOf(Settings())
     }
 
     @After
@@ -64,7 +68,7 @@ class HomeViewModelTest {
 
     private fun createViewModel(posts: List<PostDraft> = emptyList()): HomeViewModel {
         coEvery { postRepository.observeAllPosts() } returns flowOf(posts)
-        return HomeViewModel(postRepository, gitHubRepository, networkMonitor)
+        return HomeViewModel(postRepository, gitHubRepository, networkMonitor, settingsRepository)
     }
 
     @Test
@@ -275,6 +279,37 @@ class HomeViewModelTest {
             val state = awaitItem()
             assertThat(state.draftPosts).hasSize(2)
             assertThat(state.publishedPosts).hasSize(1)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun viewLive_blogUrlConfigured_emitsOpenUrlEvent() = runTest {
+        coEvery { settingsRepository.settings } returns flowOf(Settings(blogBaseUrl = "https://example.com"))
+        val vm = createViewModel()
+
+        vm.events.test {
+            vm.viewLive("my-post")
+            val event = awaitItem()
+            assertThat(event).isInstanceOf(HomeEvent.OpenUrl::class.java)
+            assertThat((event as HomeEvent.OpenUrl).url).isEqualTo("https://example.com/posts/my-post")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun viewLive_noBlogUrlConfigured_showsWarnBannerInsteadOfCrashing() = runTest {
+        coEvery { settingsRepository.settings } returns flowOf(Settings(blogBaseUrl = ""))
+        val vm = createViewModel()
+
+        vm.viewLive("my-post")
+        advanceUntilIdle()
+
+        vm.uiState.test {
+            val state = awaitItem()
+            assertThat(state.banner).isNotNull()
+            assertThat(state.banner!!.type).isEqualTo(BannerType.WARN)
+            assertThat(state.banner!!.text).contains("Settings")
             cancelAndIgnoreRemainingEvents()
         }
     }

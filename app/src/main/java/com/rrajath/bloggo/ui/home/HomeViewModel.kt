@@ -5,16 +5,21 @@ import androidx.lifecycle.viewModelScope
 import com.rrajath.bloggo.data.GitHubRepository
 import com.rrajath.bloggo.data.NetworkMonitor
 import com.rrajath.bloggo.data.PostRepository
+import com.rrajath.bloggo.data.SettingsRepository
 import com.rrajath.bloggo.domain.HomeSection
 import com.rrajath.bloggo.domain.PostDraft
 import com.rrajath.bloggo.domain.SyncState
 import com.rrajath.bloggo.domain.section
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,11 +29,14 @@ class HomeViewModel @Inject constructor(
     private val postRepository: PostRepository,
     private val gitHubRepository: GitHubRepository,
     private val networkMonitor: NetworkMonitor,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     private val _refreshing = MutableStateFlow(false)
     private val _banner = MutableStateFlow<BannerUi?>(null)
+    private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 16)
+    val events: SharedFlow<HomeEvent> = _events.asSharedFlow()
 
     private val allPosts = postRepository.observeAllPosts()
 
@@ -94,6 +102,22 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             postRepository.deletePost(localId)
             _banner.value = BannerUi(BannerType.NEUTRAL, "Draft deleted.", "Dismiss")
+        }
+    }
+
+    fun viewLive(slug: String) {
+        viewModelScope.launch {
+            val settings = settingsRepository.settings.first()
+            val url = settings.viewLiveUrl(slug)
+            if (url != null) {
+                _events.tryEmit(HomeEvent.OpenUrl(url))
+            } else {
+                _banner.value = BannerUi(
+                    BannerType.WARN,
+                    "Set a blog URL in Settings to view posts live.",
+                    "Dismiss",
+                )
+            }
         }
     }
 
