@@ -472,8 +472,8 @@ private fun PostRowCard(
                         )
                     }
                 }
-                if (onViewLive != null && row.post.slug.isNotBlank()) {
-                    TextButton(onClick = { onViewLive(row.post.slug) }) {
+                if (onViewLive != null && row.post.effectiveSlug.isNotBlank()) {
+                    TextButton(onClick = { onViewLive(row.post.effectiveSlug) }) {
                         Text("Live")
                         Icon(
                             imageVector = Icons.Default.OpenInNew,

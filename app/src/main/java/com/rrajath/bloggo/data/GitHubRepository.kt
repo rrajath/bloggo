@@ -96,12 +96,17 @@ class GitHubRepository @Inject constructor(
 
         val content = contentResponse.body()?.let { decodeContent(it) } ?: return null
         val parsed = FrontMatter.parse(content)
+        // Posts authored outside the app often omit an explicit `slug` front matter
+        // field, relying on the filename to determine the URL slug (e.g. Hugo). Fall
+        // back to the filename so the Live link still works for those posts.
+        val filenameSlug = item.path.substringAfterLast('/').removeSuffix(".md")
         return parsed.toPostDraft(
             localId = UUID.randomUUID().toString(),
             syncState = SyncState.SYNCED,
         ).copy(
             repoPath = item.path,
             blobSha = item.sha,
+            slug = parsed.slug?.takeIf { it.isNotBlank() } ?: filenameSlug,
         )
     }
 

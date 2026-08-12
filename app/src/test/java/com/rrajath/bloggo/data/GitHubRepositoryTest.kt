@@ -121,6 +121,43 @@ class GitHubRepositoryTest {
     }
 
     @Test
+    fun refresh_missingSlugFrontMatter_fallsBackToFilename() = runTest {
+        val treeResponse = Response.success(
+            TreeResponse(
+                tree = listOf(
+                    TreeItem(path = "content/posts/external-post.md", mode = "100644", type = "blob", sha = "sha-1"),
+                ),
+            ),
+        )
+        coEvery { gitHubService.getTree("me", "blog", "main") } returns treeResponse
+
+        val content = """
+            ---
+            title: "External Post"
+            draft: false
+            ---
+
+            Body text.
+        """.trimIndent()
+        coEvery { gitHubService.getContent("me", "blog", "content/posts/external-post.md", "main") } returns Response.success(
+            ContentResponse(
+                content = encode(content),
+                encoding = "base64",
+                sha = "sha-1",
+                path = "content/posts/external-post.md",
+                name = "external-post.md",
+            ),
+        )
+
+        val slot = io.mockk.slot<PostDraft>()
+        coEvery { postRepository.savePost(capture(slot)) } returns Unit
+
+        repository.refresh()
+
+        assertThat(slot.captured.slug).isEqualTo("external-post")
+    }
+
+    @Test
     fun refresh_filtersNonMdFiles() = runTest {
         val treeResponse = Response.success(
             TreeResponse(
