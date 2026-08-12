@@ -184,6 +184,8 @@ All icons come from `androidx.compose.material.icons`. No custom drawables are u
 | ArrowBack | `Icons.AutoMirrored.Filled.ArrowBack` | Editor, Settings back nav |
 | Check | `Icons.Default.Check` | "Synced" chip |
 | Clear | `Icons.Default.Clear` | Search field clear button |
+| Code | `Icons.Default.Code` | Editor formatting toolbar — inline code |
+| DataObject | `Icons.Default.DataObject` | Editor formatting toolbar — fenced code block |
 | Delete | `Icons.Default.Delete` | Post card delete action |
 | FormatBold | `Icons.Default.FormatBold` | Editor formatting toolbar |
 | FormatItalic | `Icons.Default.FormatItalic` | Editor formatting toolbar |
@@ -349,10 +351,14 @@ Horizontal toolbar for Markdown formatting actions, embedded inside the body fie
 
 - **Background:** `surfaceContainerLow` via `Surface`
 - **Buttons:** 40 dp × 40 dp `IconButton`; icon at 20 dp, tinted `onSurface`
+- **Order:** Bold, Italic, Code, Code block, Link, Image, "H" heading
 - **"H" heading button:** `TextToolbarButton` — 16 sp Bold text, same 40 dp size
-- **Word count:** `bodySmall`, `onSurfaceVariant`, right-aligned
+- **Button group:** wrapped in its own `horizontalScroll` row (`weight(1f, fill = false)`) so it scrolls independently if it overflows narrow screens, without disturbing the word count
+- **Word count:** `bodySmall`, `onSurfaceVariant`, docked to the end of the row (outside the scrollable button group, so it never scrolls off-screen)
 
 The toolbar appears both inline (top of the body box) and as a pinned overlay when the body field has scrolled above the viewport. The pinned copy adds `HorizontalDivider` below.
+
+**Formatting behavior (Bold / Italic / Code / Code block):** with no selection, the marker characters are inserted at the cursor and the cursor is left collapsed between them (e.g. `**|**`) — no placeholder text. With a selection, the selected text is wrapped in place and stays selected. Code block additionally normalizes surrounding newlines so the opening/closing ``` fences always sit on their own line, whether or not there's a selection.
 
 ---
 

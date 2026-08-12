@@ -18,17 +18,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import kotlin.math.roundToInt
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.Image
@@ -129,6 +133,7 @@ fun EditorScreen(
     var showDiscardDialog by remember { mutableStateOf(false) }
     var bodyFieldValue by remember { mutableStateOf(TextFieldValue(uiState.body)) }
     var bodyFocused by remember { mutableStateOf(false) }
+    var titleFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.body) {
         if (bodyFieldValue.text != uiState.body) {
@@ -194,21 +199,33 @@ fun EditorScreen(
             var bodyHeightPx by remember { mutableIntStateOf(0) }
             var viewportTopPx by remember { mutableIntStateOf(0) }
 
-            // When the keyboard opens, pan the page so the top of the body field
-            // rises to the top of the viewport (header scrolls out of view). The
-            // text field's own height doesn't change.
-            LaunchedEffect(imeVisible) {
-                if (imeVisible && headerHeightPx > 0) {
+            // When the keyboard opens because the body field was focused, pan the
+            // page so the top of the body field rises to the top of the viewport
+            // (header scrolls out of view). When some other field (e.g. title) was
+            // focused instead, keep the top of the page in view instead of panning
+            // past it.
+            LaunchedEffect(imeVisible, bodyFocused, titleFocused) {
+                if (imeVisible && bodyFocused && headerHeightPx > 0) {
                     scrollState.animateScrollTo(headerHeightPx)
+                } else if (imeVisible && titleFocused) {
+                    scrollState.animateScrollTo(0)
                 }
             }
 
             val onBold: () -> Unit = {
-                bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**", "bold text")
+                bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**")
                 viewModel.onBodyChange(bodyFieldValue.text)
             }
             val onItalic: () -> Unit = {
-                bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*", "italic text")
+                bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*")
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onCode: () -> Unit = {
+                bodyFieldValue = wrapSelection(bodyFieldValue, "`", "`")
+                viewModel.onBodyChange(bodyFieldValue.text)
+            }
+            val onCodeBlock: () -> Unit = {
+                bodyFieldValue = wrapCodeBlock(bodyFieldValue)
                 viewModel.onBodyChange(bodyFieldValue.text)
             }
             val onLink: () -> Unit = {
@@ -228,7 +245,8 @@ fun EditorScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .onGloballyPositioned { viewportTopPx = it.positionInWindow().y.roundToInt() },
+                    .onGloballyPositioned { viewportTopPx = it.positionInWindow().y.roundToInt() }
+                    .imePadding(),
             ) {
                 LaunchedEffect(maxHeight, imeVisible) {
                     if (!imeVisible) fullMaxHeight = maxHeight
@@ -268,7 +286,9 @@ fun EditorScreen(
                             value = uiState.title,
                             onValueChange = viewModel::onTitleChange,
                             placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { titleFocused = it.isFocused },
                             textStyle = MaterialTheme.typography.headlineMedium,
                             singleLine = true,
                         )
@@ -317,6 +337,8 @@ fun EditorScreen(
                                     wordCount = uiState.wordCount,
                                     onBold = onBold,
                                     onItalic = onItalic,
+                                    onCode = onCode,
+                                    onCodeBlock = onCodeBlock,
                                     onLink = onLink,
                                     onImage = onImage,
                                     onHeading = onHeading,
@@ -361,11 +383,6 @@ fun EditorScreen(
                             },
                         )
                     }
-
-                    // Extra scroll room so the caret can be scrolled clear of the keyboard.
-                    if (imeVisible) {
-                        Spacer(modifier = Modifier.height(with(density) { imeBottomPx.toDp() }))
-                    }
                 }
 
                 // Pinned copy of the toolbar — shown only while the body box is in
@@ -385,6 +402,8 @@ fun EditorScreen(
                                     wordCount = uiState.wordCount,
                                     onBold = onBold,
                                     onItalic = onItalic,
+                                    onCode = onCode,
+                                    onCodeBlock = onCodeBlock,
                                     onLink = onLink,
                                     onImage = onImage,
                                     onHeading = onHeading,
@@ -624,6 +643,8 @@ private fun FormattingToolbar(
     wordCount: Int,
     onBold: () -> Unit,
     onItalic: () -> Unit,
+    onCode: () -> Unit,
+    onCodeBlock: () -> Unit,
     onLink: () -> Unit,
     onImage: () -> Unit,
     onHeading: (Int) -> Unit,
@@ -641,15 +662,24 @@ private fun FormattingToolbar(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ToolbarButton(onClick = onBold, icon = Icons.Default.FormatBold, desc = "Bold")
-                ToolbarButton(onClick = onItalic, icon = Icons.Default.FormatItalic, desc = "Italic")
-                ToolbarButton(onClick = onLink, icon = Icons.Default.Link, desc = "Link")
-                ToolbarButton(onClick = onImage, icon = Icons.Default.Image, desc = "Image")
-                TextToolbarButton(
-                    onClick = { showHeadingFlyout = !showHeadingFlyout },
-                    label = "H",
-                )
-                Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ToolbarButton(onClick = onBold, icon = Icons.Default.FormatBold, desc = "Bold")
+                    ToolbarButton(onClick = onItalic, icon = Icons.Default.FormatItalic, desc = "Italic")
+                    ToolbarButton(onClick = onCode, icon = Icons.Default.Code, desc = "Code")
+                    ToolbarButton(onClick = onCodeBlock, icon = Icons.Default.DataObject, desc = "Code block")
+                    ToolbarButton(onClick = onLink, icon = Icons.Default.Link, desc = "Link")
+                    ToolbarButton(onClick = onImage, icon = Icons.Default.Image, desc = "Image")
+                    TextToolbarButton(
+                        onClick = { showHeadingFlyout = !showHeadingFlyout },
+                        label = "H",
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "$wordCount words",
                     style = MaterialTheme.typography.bodySmall,
@@ -798,29 +828,66 @@ private fun DiscardDialog(
     )
 }
 
+/**
+ * Wraps the current selection with [before]/[after] markers. With no selection, the
+ * markers are inserted at the cursor with the cursor left collapsed between them. With
+ * a selection, the selected text is enclosed and stays selected.
+ */
 private fun wrapSelection(
     value: TextFieldValue,
     before: String,
     after: String,
-    placeholder: String,
 ): TextFieldValue {
     val text = value.text
-    val start = value.selection.start
-    val end = value.selection.end
-    val selectedText = if (start == end) placeholder else text.substring(start, end)
+    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val selectedText = text.substring(start, end)
     val newText = text.substring(0, start) + before + selectedText + after + text.substring(end)
-    val newSelection = if (start == end) {
-        TextRange(start + before.length, start + before.length + selectedText.length)
+    val newSelection = if (selectedText.isEmpty()) {
+        TextRange(start + before.length)
     } else {
         TextRange(start + before.length, start + before.length + selectedText.length)
     }
     return TextFieldValue(newText, newSelection)
 }
 
+/**
+ * Wraps the current selection in a fenced code block, normalizing surrounding
+ * whitespace so the opening/closing ``` fences always sit on their own line. With no
+ * selection, the cursor is left on the blank line between the two fences.
+ */
+private fun wrapCodeBlock(value: TextFieldValue): TextFieldValue {
+    val text = value.text
+    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val selectedText = text.substring(start, end)
+
+    val leadingNewline = if (start > 0 && text[start - 1] != '\n') "\n" else ""
+    val trailingNewline = if (end < text.length && text[end] != '\n') "\n" else ""
+    val innerTrailingNewline = if (selectedText.isEmpty() || !selectedText.endsWith("\n")) "\n" else ""
+
+    val opening = leadingNewline + "```\n"
+    val newText = text.substring(0, start) +
+        opening +
+        selectedText +
+        innerTrailingNewline +
+        "```" +
+        trailingNewline +
+        text.substring(end)
+
+    val cursorBase = start + opening.length
+    val newSelection = if (selectedText.isEmpty()) {
+        TextRange(cursorBase)
+    } else {
+        TextRange(cursorBase, cursorBase + selectedText.length)
+    }
+    return TextFieldValue(newText, newSelection)
+}
+
 private fun insertLink(value: TextFieldValue): TextFieldValue {
     val text = value.text
-    val start = value.selection.start
-    val end = value.selection.end
+    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
     val selectedText = if (start == end) "link text" else text.substring(start, end)
     val newText = text.substring(0, start) + "[$selectedText](https://)" + text.substring(end)
     val urlStart = start + selectedText.length + 3
@@ -829,8 +896,8 @@ private fun insertLink(value: TextFieldValue): TextFieldValue {
 
 private fun insertImage(value: TextFieldValue): TextFieldValue {
     val text = value.text
-    val start = value.selection.start
-    val end = value.selection.end
+    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
+    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
     val selectedText = if (start == end) "alt text" else text.substring(start, end)
     val newText = text.substring(0, start) + "![$selectedText](https://)" + text.substring(end)
     val urlStart = start + selectedText.length + 4
