@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Bloggo</string>
+
+    <!-- "Capture a thought" app shortcut (long-press the launcher icon). -->
+    <string name="shortcut_capture_short_label">Capture a thought</string>
+    <string name="shortcut_capture_long_label">Capture a thought</string>
 </resources>

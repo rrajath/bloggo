@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icon for the "Capture a thought" app shortcut (long-press the launcher
+  icon). The pen strokes below are the exact path data from
+  BloggoIcons.Pen (designsystem/.../icon/BloggoIcons.kt) — reused rather
+  than redrawn, per docs/DESIGN_SYSTEM.md's "nothing redrawn by eye" rule
+  for this icon set. Circle background uses BloggoColors' light-theme
+  `accent` (#1D3F63) so the shortcut reads as "this app" at a glance.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#1D3F63"
+        android:pathData="M24,0 A24,24 0 1,1 23.99,0 Z" />
+    <group
+        android:translateX="12"
+        android:translateY="12">
+        <path
+            android:pathData="M15.5,4.5 19.5,8.5"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M17,3 21,7 8.6,19.4l-5.1,1.1 1.1,-5.1z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="m6.5,15.5 2,2"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+    </group>
+</vector>

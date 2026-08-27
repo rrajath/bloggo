@@ -1,22 +1,26 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
+# Build output
+build/
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
 /captures
-.externalNativeBuild
-.cxx
-local.properties
+
+# Android Studio / IntelliJ
+*.iml
 /.idea
-/.serena
+
+# Local config
+local.properties
 *.jks
 *.keystore
-
-# Sentry Config File
 sentry.properties
+
+# OS
+.DS_Store
+
+# Tooling
+/.serena
+
+# Working notes (not committed)
+PROGRESS.md

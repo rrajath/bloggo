@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static app shortcuts (long-press the launcher icon). One entry today:
+  "Capture a thought", which opens straight to the Inbox with the capture
+  field focused, skipping whatever screen the app would otherwise resume
+  to. See MainActivity.kt / BloggoApp.kt for how ACTION_CAPTURE_THOUGHT is
+  read on the receiving end.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="capture_a_thought"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_capture"
+        android:shortcutShortLabel="@string/shortcut_capture_short_label"
+        android:shortcutLongLabel="@string/shortcut_capture_long_label">
+        <intent
+            android:action="com.rrajath.bloggo.action.CAPTURE_THOUGHT"
+            android:targetPackage="com.rrajath.bloggo"
+            android:targetClass="com.rrajath.bloggo.MainActivity" />
+    </shortcut>
+</shortcuts>

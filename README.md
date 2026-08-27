@@ -1,100 +1,145 @@
 # Bloggo
 
-**Bloggo** is an Android app for writing, previewing, and publishing [Hugo](https://gohugo.io/) blog posts directly from your phone. Posts are authored in Markdown with YAML front matter and pushed straight to your blog's GitHub repository — no laptop required.
+A phone-first writing studio for a git-backed Hugo blog. Draft a post on a train
+with no signal, generate a cover for it, and have it land on `main` the moment
+you get reception, with no laptop involved.
 
----
+This repository holds the design work and the Android foundation for that app.
 
-## The Problem
+## The problem
 
-Writing and publishing a blog post traditionally means sitting at a laptop to author, preview, commit, and push. There is no way to capture and publish a post when an idea strikes away from your desk. Bloggo removes that constraint: open the app, write in Markdown, check the preview, and publish — all from your phone.
+Publishing to a static site from a phone is unreasonably hard. The options are a
+GitHub web editor that fights you on a touch screen, a CMS that takes ownership
+of your files, or waiting until you are back at a desk. Meanwhile the useful half
+of writing, the half where you catch a thought and get it down, happens away from
+the desk.
 
----
+Bloggo keeps the repository as the source of truth and puts a real writing
+surface in front of it.
+
+## What is here
+
+| Path | What it is |
+|---|---|
+| `design/bloggo-prototype.html` | The interactive UI prototype. One file, no build step. Open it in a browser, or on a phone, where the device frame drops away. |
+| `android/` | A buildable Compose project: the cover art generator, the design system, and every screen laid out against sample data. |
+| `docs/DESIGN_SYSTEM.md` | Tokens, typography, icons, components. Read before touching any UI. |
+| `docs/ANDROID_TDD.md` | Technical design for building the app: GitHub layer, offline outbox, auth, milestones, risks. |
+| `docs/PROTOTYPE_NOTES.md` | Why the prototype is the way it is. |
+| `tools/` | Icon extraction and Kotlin generation from the prototype's SVG. |
 
 ## Features
 
-- **Post list with instant loading** — see all posts (local and synced from GitHub) at a glance, grouped into Draft and Published sections
-- **Markdown editor** — touch-friendly editor with bold, italic, link, image, and heading formatting shortcuts
-- **Live Markdown preview** — toggle between Edit and Preview without leaving the editor
-- **YAML front matter management** — title, slug, and draft status are managed automatically; everything else is freely editable
-- **Auto-derived slugs** — slug is derived from the title on new posts; freezes permanently once pushed so live URLs never break
-- **Save locally or publish** — save a draft to your device, or push directly to GitHub in a single flow with a commit diff to review before pushing
-- **Draft-flip protection** — if a post is still marked `draft: true`, Bloggo warns you before publishing
-- **Sync status indicators** — every post shows whether it is Local-only, Synced, or Synced-with-local-edits
-- **Search** — filter posts by title from the home screen
-- **Customisable appearance** — Light, Dark, and System theme modes with four accent colours (Indigo, Green, Amber, Violet)
-- **Secure token storage** — your GitHub Personal Access Token is stored in Android's encrypted keystore
+**In the prototype and laid out in the Android scaffold**
 
----
+- Post library split by what needs attention: in progress, open pull request,
+  published
+- Markdown editor showing real source with live styling, dimmed syntax markers
+- Read mode rendered with the site's typography, including Hugo shortcodes
+- Frontmatter editing sourced from `archetypes/default.md` and `hugo.toml`
+- Generated cover art, seeded from the post slug so it is stable forever
+- Commit straight to the configured branch through the real Git Data API —
+  message, file list, one commit for the post and any images it references.
+  Opening a pull request instead, a line-level diff, and an offline queue are
+  still ahead (P0 items 6–7)
+- Media library over `static/images/`: real repo images plus anything staged
+  this session but not committed yet, insertable into a post from the
+  editor's Insert row
+- Preview actually renders images (repo-hosted or still-staged) and
+  `http(s)`-sourced video, not placeholder boxes
+- Capture inbox for fragments that are not posts yet, persisted durably
+  (Room) so a captured-but-unpromoted thought survives a process death.
+  Capture is a FAB-triggered overlay (fixed-height text area, keyboard-
+  avoiding, with list auto-continuation on Enter and Save/Discard), not an
+  always-visible inline field. Opening a fragment previews it in the Editor
+  without touching the Inbox; a "Promote to Post" button in Post details is
+  what actually turns it into a real draft.
+- "Capture a thought" app shortcut (long-press the launcher icon, Android
+  only — no equivalent in the HTML prototype) opens straight to the Inbox
+  with the capture overlay already open and focused
+- Pages tab (Android only, in place of the old Media tab — see
+  `docs/PROTOTYPE_NOTES.md`'s "Pages replaced Media"): the top-level
+  `content/*.md` files a Hugo site has (`about.md`, `uses.md`, and so on),
+  pulled straight from the connected repo. A page already pushed opens into
+  Preview; one that only exists locally opens into Editor, same as a post's
+  draft/published split. Editing a page stamps its frontmatter `lastmod:` to
+  now.
+- Share (from Preview, for either a post or a page) hands the title and the
+  live URL to the native Android share sheet — a page's share text also
+  includes the author name set on the Settings screen, when one is set
+- Live page access from the library, the preview, and the repo screen
+- Cover art can be switched off entirely, and the layouts hold up without it
+- Light and dark, both complete palettes
 
-## Screenshots
+**Deferred**
 
-| Home | Editor | Settings |
-|------|--------|----------|
-| ![Home screen showing draft and published posts](docs/screenshots/home.png) | ![Editor with Markdown body and formatting toolbar](docs/screenshots/editor.png) | ![Settings screen with GitHub config fields](docs/screenshots/settings.png) |
-
----
-
-## Installation
-
-### Download from GitHub Releases (recommended)
-
-1. Open the [Releases](https://github.com/rrajath/bloggo/releases) page.
-2. Download the latest `bloggo-release.apk`.
-3. On your Android device, allow installation from unknown sources if prompted, then open the downloaded file to install.
-
-### Via Obtainium
-
-[Obtainium](https://github.com/ImranR98/Obtainium) lets you track and install updates automatically directly from GitHub Releases.
-
-1. Install Obtainium on your device.
-2. Tap **Add App** and enter the repository URL:
-   ```
-   https://github.com/rrajath/bloggo
-   ```
-3. Obtainium will detect new releases automatically and notify you when an update is available.
-
-### Build from source
-
-Prerequisites: JDK 17, Android SDK.
-
-```bash
-git clone https://github.com/rrajath/bloggo.git
-cd bloggo
-./gradlew assembleRelease
-# APK is at app/build/outputs/apk/release/
-```
-
----
+- Focus mode with a typewriter sightline and a session goal (P2)
+- Voice capture in the inbox (P2)
+- Share to several Mastodon accounts at once, with per-instance character
+  limits (`MastodonScreen.kt`) — built, but no longer reachable from
+  anywhere in the app now that Preview's Share button opens the native
+  share sheet instead. Left in place rather than deleted; see PROGRESS.md.
 
 ## Setup
 
-1. Install the app and open it.
-2. Tap the **Settings** icon (top-right on the home screen).
-3. Enter:
-   - **Personal Access Token** — a GitHub PAT with `repo` scope (contents read/write)
-   - **Repository** — your GitHub repo in `owner/repo` format
-   - **Branch** — defaults to `main`
-   - **Content path** — where your Markdown posts live (e.g. `content/posts`)
-   - **Blog base URL** — used to generate "View live" links for published posts
-4. Tap back to start writing.
+### The prototype
 
----
-
-## Architecture
-
-Standard Android layered architecture built with Jetpack Compose and Material 3.
-
-```
-ui/        Compose screens (Home, Editor, Settings) + ViewModels
-domain/    Pure Kotlin models (PostDraft, SyncState, FrontMatter, Slug)
-data/      Repositories, Room DAOs, Retrofit (GitHub API), SettingsRepository
-di/        Hilt modules
+```sh
+open design/bloggo-prototype.html
 ```
 
-**Tech stack:** Kotlin · Jetpack Compose · Material 3 · Hilt · Room · Retrofit · Moshi · SnakeYAML · Markwon · DataStore · EncryptedSharedPreferences
+No dependencies, no server. Everything runs from the one file.
 
----
+### The Android project
 
-## License
+Requires JDK 17 or newer and the Android SDK (compileSdk 36, build-tools 36).
 
-MIT
+```sh
+cd android
+./gradlew assembleDebug          # build
+./gradlew testDebugUnitTest      # 115 unit tests
+./gradlew installDebug           # to a connected device or emulator
+```
+
+Or with the `android` CLI:
+
+```sh
+android emulator start Pixel_9_Pro
+android run
+```
+
+minSdk is 34.
+
+### Regenerating the icon set
+
+Icons are generated from the prototype's inline SVG so they cannot drift. After
+changing an icon there:
+
+```sh
+node tools/icons.js       # extract and normalise to path data
+node tools/genicons.js    # write BloggoIcons.kt
+```
+
+## How the pieces relate
+
+The prototype is the reference. The design system is the prototype's tokens made
+into Kotlin. The Android scaffold is those components assembled into screens. When
+they disagree, the prototype is right.
+
+The cover art generator is the exception worth knowing about: it is a port of the
+prototype's `paint()` verified against the JavaScript original's own output, so a
+given post slug produces a byte-identical picture on both platforms. See
+`docs/DESIGN_SYSTEM.md` §8.
+
+## Status
+
+The prototype is complete. The Android project builds, runs, and talks to a real
+connected GitHub repository: validating the connection and detecting Hugo,
+listing and caching posts and images, and committing a post (with any images it
+references) straight to the configured branch through the Git Data API. 115
+unit tests across `:app` alone, plus the cover generator's and the markdown
+highlighter's own suites in `:coverart`/`:designsystem`.
+
+Still ahead: opening a pull request instead of a direct commit, a line-level
+diff before publishing, and an offline outbox for queued commits — see
+`docs/ANDROID_TDD.md` §13/§16 for the exact scope.

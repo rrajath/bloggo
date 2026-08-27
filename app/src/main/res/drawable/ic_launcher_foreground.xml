@@ -1,32 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The Monogram: an italic serif "b", traced from Instrument Serif Italic, with a short
+     accent-navy underline. Matches the "app icon lab" concept picked from design/bloggo-prototype.html. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!--
-        Roboto Bold "b." mark. Font UPM=2048, target size=50dp.
-        Groups scale font coords (Y-up) into the 108dp viewBox (Y-down).
-        Baseline at y=72.51dp; horizontal centre at x=54dp.
-        Transform per group: scaleX=50/2048, scaleY=-(50/2048), then translate.
-        "b" advance=1153 units → period translateX = 32.66 + 1153*(50/2048) = 60.81
-    -->
-    <group
-        android:translateX="32.66"
-        android:translateY="72.51"
-        android:scaleX="0.024414"
-        android:scaleY="-0.024414">
-        <path
-            android:fillColor="#FCFBFE"
-            android:pathData="M1086 531Q1086 409 1060.0 308.0Q1034 207 981.5 134.0Q929 61 850.0 20.5Q771 -20 665 -20Q571 -20 502.5 15.5Q434 51 384 115L371 0H111V1536H400V985Q448 1041 512.5 1071.5Q577 1102 663 1102Q769 1102 848.5 1061.0Q928 1020 981.0 947.0Q1034 874 1060.0 773.0Q1086 672 1086 552ZM797 552Q797 616 788.0 673.5Q779 731 755.5 774.0Q732 817 692.0 842.0Q652 867 590 867Q517 867 471.0 837.5Q425 808 400 754V327Q425 273 471.0 243.0Q517 213 592 213Q653 213 692.5 237.0Q732 261 755.5 303.0Q779 345 788.0 403.5Q797 462 797 531Z" />
-    </group>
-    <group
-        android:translateX="60.81"
-        android:translateY="72.51"
-        android:scaleX="0.024414"
-        android:scaleY="-0.024414">
-        <path
-            android:fillColor="#FFB868"
-            android:pathData="M126 142Q126 175 137.5 203.5Q149 232 170.5 252.5Q192 273 222.0 285.0Q252 297 289 297Q326 297 356.5 285.0Q387 273 408.5 252.5Q430 232 441.5 203.5Q453 175 453 142Q453 109 441.5 81.0Q430 53 408.5 32.5Q387 12 356.5 0.5Q326 -11 289 -11Q252 -11 222.0 0.5Q192 12 170.5 32.5Q149 53 137.5 81.0Q126 109 126 142Z" />
-    </group>
+    <path
+        android:fillColor="#F6F3EC"
+        android:pathData="M47.31 77.30Q44.77 77.30 42.80 75.92Q40.83 74.54 40.04 71.75Q39.26 68.96 40.23 64.79L48.57 28.97Q48.94 27.63 48.61 27.11Q48.27 26.59 47.23 26.51L45.00 26.29Q43.88 26.21 44.03 25.32Q44.18 24.65 45.07 24.50Q47.75 24.06 49.84 23.42Q51.92 22.79 53.19 21.75Q53.78 21.30 54.31 21.30Q55.20 21.30 54.98 22.42L48.20 51.68Q48.12 52.20 48.42 52.28Q48.72 52.35 48.94 51.91Q53.04 44.09 56.28 41.15Q59.52 38.20 62.35 38.20Q65.10 38.20 66.70 40.51Q68.31 42.82 68.31 47.29Q68.31 51.53 67.08 55.82Q65.85 60.10 63.73 63.97Q61.60 67.84 58.88 70.82Q56.17 73.80 53.19 75.55Q50.21 77.30 47.31 77.30ZM47.53 75.44Q49.46 75.44 51.62 73.69Q53.78 71.94 55.83 69.00Q57.88 66.06 59.52 62.37Q61.16 58.68 62.12 54.77Q63.09 50.86 63.09 47.21Q63.09 44.39 62.50 43.23Q61.90 42.08 60.41 42.08Q58.77 42.08 56.69 44.09Q54.60 46.10 52.44 49.41Q50.28 52.73 48.42 56.60Q46.56 60.47 45.44 64.23Q44.33 67.99 44.33 70.90Q44.33 75.44 47.53 75.44Z" />
+    <path
+        android:strokeColor="#2F5B87"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:pathData="M43.7,85 L64.3,85" />
 </vector>

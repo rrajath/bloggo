@@ -1,919 +1,541 @@
 package com.rrajath.bloggo.ui.editor
 
-import android.view.ViewGroup
-import android.widget.Toast
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import kotlin.math.roundToInt
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DataObject
-import androidx.compose.material.icons.filled.FormatBold
-import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.noties.markwon.Markwon
+import com.rrajath.bloggo.data.RepoConnection
+import com.rrajath.bloggo.data.SampleData
+import com.rrajath.bloggo.data.publish.PublishResult
+import com.rrajath.bloggo.designsystem.BloggoFonts
+import com.rrajath.bloggo.designsystem.BloggoTheme
+import com.rrajath.bloggo.designsystem.component.BloggoChip
+import com.rrajath.bloggo.designsystem.component.BloggoIconButton
+import com.rrajath.bloggo.designsystem.component.ChipTone
+import com.rrajath.bloggo.designsystem.component.SegmentedControl
+import com.rrajath.bloggo.designsystem.component.ToolbarButton
+import com.rrajath.bloggo.designsystem.editor.MarkdownHighlighter
+import com.rrajath.bloggo.designsystem.editor.rememberMarkdownTransformation
+import com.rrajath.bloggo.designsystem.icon.BloggoIcon
+import com.rrajath.bloggo.designsystem.icon.BloggoIcons
+import com.rrajath.bloggo.model.DocKind
+import com.rrajath.bloggo.model.FrontmatterEdits
+import com.rrajath.bloggo.model.MediaFile
+import com.rrajath.bloggo.model.PageFrontmatterEdits
+import com.rrajath.bloggo.model.Post
+import com.rrajath.bloggo.model.PostState
+import com.rrajath.bloggo.model.StagedMedia
+import com.rrajath.bloggo.model.currentFrontmatterTimestamp
+import com.rrajath.bloggo.model.isPushed
+import com.rrajath.bloggo.model.markdownWordCount
+import com.rrajath.bloggo.model.syncSlugToTitle
+import com.rrajath.bloggo.model.withFrontmatterEdits
+import com.rrajath.bloggo.model.withPageFrontmatterEdits
+import com.rrajath.bloggo.model.withUpdatedLastmod
+import com.rrajath.bloggo.ui.sheet.PostDetailsSheet
+import com.rrajath.bloggo.ui.sheet.PublishSheet
+import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** How long typing has to pause before the slug is re-synced to the title.
+ * [syncSlugToTitle] rewrites the `slug:` line elsewhere in the document, and
+ * doing that inside the same [androidx.compose.foundation.text.BasicTextField.onValueChange]
+ * that's already carrying the user's own edit means every title keystroke was
+ * landing as two edits in one [TextFieldValue] — which is what was driving the
+ * IME to treat it as a non-incremental change and restart the input
+ * connection instead of updating it, stalling and dropping keystrokes on real
+ * devices. Waiting for a pause keeps it to one edit per keystroke. */
+private const val SLUG_SYNC_DEBOUNCE_MS = 500L
+
+/** Preserves [selection] across a rewrite that happened somewhere else in the
+ * document (the slug auto-sync), by diffing [old] against [new] rather than
+ * assuming where the rewritten field sits relative to the cursor. A selection
+ * inside the rewritten span collapses to the span's start. */
+private fun adjustSelectionForRewrite(old: String, new: String, selection: TextRange): TextRange {
+  if (old == new) return selection
+  val maxPrefix = minOf(old.length, new.length)
+  var prefix = 0
+  while (prefix < maxPrefix && old[prefix] == new[prefix]) prefix++
+  val maxSuffix = maxPrefix - prefix
+  var suffix = 0
+  while (suffix < maxSuffix && old[old.length - 1 - suffix] == new[new.length - 1 - suffix]) suffix++
+  val oldChangedEnd = old.length - suffix
+  val delta = new.length - old.length
+  fun shift(offset: Int) = when {
+    offset <= prefix -> offset
+    offset >= oldChangedEnd -> offset + delta
+    else -> prefix
+  }
+  return TextRange(shift(selection.start), shift(selection.end))
+}
+
+/**
+ * Capitalizes the first character typed right at the start of a heading's
+ * text (immediately after its `#`/`##`/… marker), and leaves everything else
+ * alone.
+ *
+ * [KeyboardCapitalization] is an IME-level flag with no notion of markdown —
+ * `Sentences` capitalizes after every newline, not just heading markers,
+ * which is what over-applied capitalization to every line/paragraph in the
+ * body. Doing it here instead, as a manual post-processing step on the same
+ * shape of diff [adjustSelectionForRewrite] already computes, is what lets it
+ * be conditioned on "is this line a heading" — and it fires for swipe/gesture
+ * input the same as normal typing, since both land here as an ordinary
+ * insertion rather than going through the IME's own auto-cap.
+ */
+private fun capitalizeHeadingFirstLetter(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+  val oldText = old.text
+  val newText = new.text
+  if (newText.length <= oldText.length) return new // not an insertion
+  val maxPrefix = minOf(oldText.length, newText.length)
+  var prefix = 0
+  while (prefix < maxPrefix && oldText[prefix] == newText[prefix]) prefix++
+  val maxSuffix = maxPrefix - prefix
+  var suffix = 0
+  while (suffix < maxSuffix && oldText[oldText.length - 1 - suffix] == newText[newText.length - 1 - suffix]) suffix++
+  val insertedEnd = newText.length - suffix
+  if (insertedEnd <= prefix) return new
+
+  val lineStart = newText.lastIndexOf('\n', prefix - 1).let { if (it == -1) 0 else it + 1 }
+  val lineEnd = newText.indexOf('\n', prefix).let { if (it == -1) newText.length else it }
+  val line = newText.substring(lineStart, lineEnd)
+  val markerLength = MarkdownHighlighter.headingMarkerLength(line) ?: return new
+  // Only the very first character typed right after the marker gets capitalized —
+  // not every insertion anywhere in the heading's text.
+  if (prefix != lineStart + markerLength) return new
+
+  val typedChar = newText[prefix]
+  if (!typedChar.isLowerCase()) return new
+  val rewritten = newText.substring(0, prefix) + typedChar.uppercaseChar() + newText.substring(prefix + 1)
+  return TextFieldValue(rewritten, new.selection, new.composition)
+}
+
+/**
+ * Markdown source editing with live styling.
+ *
+ * The field holds the literal file contents, frontmatter and all. Anything that
+ * hides characters from the writer would put the app's idea of the document and
+ * the repo's out of step, which is the failure mode a git-backed editor cannot
+ * afford.
+ */
 @Composable
 fun EditorScreen(
-    postId: String?,
-    onBack: () -> Unit,
-    onPublish: (com.rrajath.bloggo.domain.PostDraft) -> Unit,
-    viewModel: EditorViewModel = hiltViewModel(),
+  post: Post,
+  imagePath: String,
+  tagPool: List<String>,
+  connection: RepoConnection,
+  /** [post.slug]'s already-pushed check ([com.rrajath.bloggo.model.isPushed]) —
+   * `remotePostSlugs` or `remotePageSlugs` from `BloggoApp.kt`, whichever
+   * matches [post.kind]. Threaded down only as far as [PostDetailsSheet]
+   * actually needs it, the same way [tagPool] already is. */
+  remoteSlugs: Set<String>,
+  stagedMediaForPost: List<StagedMedia>,
+  isPublishing: Boolean,
+  publishResult: PublishResult?,
+  /** Set once, right after a pick/upload returns from `Route.Media`'s picker
+   * mode — see [onPendingInsertConsumed]. Threaded down rather than owned
+   * here since the media pick itself happens on a screen this composable
+   * never sees. */
+  pendingInsertImage: MediaFile?,
+  /** True only while [post] is a transient Inbox-fragment preview, never
+   * added to `posts`/`LocalPostStore` until it's actually promoted — see
+   * [PostDetailsSheet]'s `isFragmentPreview` param, which this passes
+   * straight through. Also gates the Commit toolbar action off here: a
+   * fragment preview has no real draft entry yet for a publish to update,
+   * so committing it would either crash or silently orphan a published post
+   * `posts` never heard about — it must be promoted first. */
+  isFragmentPreview: Boolean = false,
+  onMarkdownChange: (markdown: String, wordCount: Int) -> Unit,
+  onBack: () -> Unit,
+  onPreview: () -> Unit,
+  onFocus: () -> Unit,
+  onToast: (String) -> Unit,
+  onCoverGenerated: (String) -> Unit,
+  onDeletePost: () -> Unit,
+  onMoveToInbox: () -> Unit,
+  onPromoteToPost: () -> Unit = {},
+  onDeleteFragment: () -> Unit = {},
+  onPublish: (message: String, date: String) -> Unit,
+  onInsertImage: () -> Unit,
+  onPendingInsertConsumed: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val publishState by viewModel.publishState.collectAsStateWithLifecycle()
+  val colors = BloggoTheme.colors
+  var value by remember(post.slug) {
+    mutableStateOf(TextFieldValue(post.markdown, TextRange(post.markdown.length)))
+  }
+  // Recomputed once per actual edit below, not on every recomposition — see `edit()`. A large
+  // post's word count is a full-document pass (model/Model.kt), and the toolbar re-reading
+  // value.text.markdownWordCount() directly on every recomposition was doing that pass a
+  // *second* time for the exact same string onMarkdownChange already measured, doubling real
+  // per-keystroke cost on documents big enough for it to matter. The count is handed to
+  // onMarkdownChange rather than left for the caller to recompute, which is where that same
+  // duplicate pass had simply moved to.
+  var wordCount by remember(post.slug) { mutableStateOf(post.markdown.markdownWordCount()) }
+  var showDetails by remember { mutableStateOf(false) }
+  var showInsert by remember { mutableStateOf(false) }
+  val transformation = rememberMarkdownTransformation()
 
-    LaunchedEffect(postId) {
-        viewModel.loadPost(postId)
+  // The markdown the slug was last synced against — see the debounced LaunchedEffect below.
+  var slugSyncBaseline by remember(post.slug) { mutableStateOf(post.markdown) }
+  // A page's counterpart: the markdown `lastmod` was last stamped against, so
+  // the same pause-in-typing settle that re-syncs the slug also upserts
+  // `lastmod` to now whenever the settled text has actually moved on from it —
+  // "whenever a page is edited," without a frontmatter rewrite on every
+  // keystroke. Irrelevant for a post, which has no `lastmod` concept.
+  var lastmodBaseline by remember(post.slug) { mutableStateOf(post.markdown) }
+  var showPublish by remember { mutableStateOf(false) }
+
+  fun edit(transform: (TextFieldValue) -> TextFieldValue) {
+    val previousValue = value
+    val previousText = previousValue.text
+    value = capitalizeHeadingFirstLetter(previousValue, transform(previousValue))
+    // BasicTextField's onValueChange also fires for selection-only changes (moving the cursor,
+    // selecting text to copy) with the text unchanged. Fan those out to nothing: they used to
+    // trigger the exact same downstream cost as a real edit — parseFrontmatter/markdownWordCount
+    // here, plus the caller's own post-list update and everything that recomposes because of it —
+    // for zero actual content change.
+    if (value.text != previousText) {
+      val counted = value.text.markdownWordCount()
+      wordCount = counted
+      onMarkdownChange(value.text, counted)
     }
+  }
 
-    val context = LocalContext.current
+  // A successful publish closes the sheet on its own — the writer asked once,
+  // there is nothing left to confirm. A failure leaves it open with the
+  // Retry banner PublishSheet already shows.
+  LaunchedEffect(publishResult) {
+    if (publishResult is PublishResult.Success) showPublish = false
+  }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is EditorEvent.NavigateBack -> {
-                    if (event.message != null) {
-                        Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-                    }
-                    onBack()
-                }
-                is EditorEvent.ShowMessage -> {
-                    Toast.makeText(context, event.text, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+  // One-shot, the same shape as InboxScreen's requestFocusOnOpen/onFocusConsumed:
+  // a pick or upload on Route.Media's picker mode sets this once, from a screen
+  // this composable never sees, and consuming it here (rather than reacting to
+  // every recomposition) is what makes it insert exactly once per pick.
+  LaunchedEffect(pendingInsertImage) {
+    val picked = pendingInsertImage ?: return@LaunchedEffect
+    edit { MarkdownAction.figure(picked.sitePath, "").applyTo(it) }
+    onPendingInsertConsumed()
+  }
+
+  // Debounced rather than run inside `edit()` on every keystroke: see SLUG_SYNC_DEBOUNCE_MS.
+  LaunchedEffect(value.text) {
+    delay(SLUG_SYNC_DEBOUNCE_MS)
+    val settledText = value.text
+    val synced = syncSlugToTitle(slugSyncBaseline, settledText)
+    slugSyncBaseline = synced
+    var finalText = synced
+    if (post.kind == DocKind.Page && finalText != lastmodBaseline) {
+      finalText = finalText.withUpdatedLastmod(currentFrontmatterTimestamp())
+      lastmodBaseline = finalText
     }
-
-    if (uiState.isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Loading...")
-        }
-        return
+    if (finalText != settledText) {
+      value = TextFieldValue(finalText, adjustSelectionForRewrite(settledText, finalText, value.selection))
+      val counted = finalText.markdownWordCount()
+      wordCount = counted
+      onMarkdownChange(finalText, counted)
     }
+  }
 
-    var showDiscardDialog by remember { mutableStateOf(false) }
-    var bodyFieldValue by remember { mutableStateOf(TextFieldValue(uiState.body)) }
-    var bodyFocused by remember { mutableStateOf(false) }
-    var titleFocused by remember { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.body) {
-        if (bodyFieldValue.text != uiState.body) {
-            bodyFieldValue = TextFieldValue(uiState.body)
-        }
-    }
-
-    val titleText = if (uiState.isNew) "New post" else "Edit post"
-
-    fun handleBack() {
-        if (uiState.dirty) {
-            showDiscardDialog = true
-        } else {
-            onBack()
-        }
-    }
-
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text(titleText) },
-                modifier = Modifier.statusBarsPadding(),
-                navigationIcon = {
-                    IconButton(onClick = { handleBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    EditPreviewToggle(
-                        isPreview = uiState.isPreview,
-                        onEdit = { viewModel.togglePreview() },
-                        onPreview = { viewModel.togglePreview() },
-                    )
-                },
-            )
-        },
-    ) { innerPadding ->
-        if (uiState.isPreview) {
-            PreviewPane(
-                body = uiState.body,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState()),
-            )
-        } else {
-            val density = LocalDensity.current
-            val imeBottomPx = WindowInsets.ime.getBottom(density)
-            val imeVisible = imeBottomPx > 0
-            val scrollState = rememberScrollState()
-
-            // Stable full-height of the content area (captured while the keyboard
-            // is hidden). The body field's minimum height is derived from this so
-            // it never shrinks when the keyboard opens.
-            var fullMaxHeight by remember { mutableStateOf(0.dp) }
-            var headerHeightPx by remember { mutableIntStateOf(0) }
-            var buttonsHeightPx by remember { mutableIntStateOf(0) }
-            var toolbarHeightPx by remember { mutableIntStateOf(0) }
-
-            // Sticky-toolbar tracking, in window coordinates.
-            var bodyTopPx by remember { mutableIntStateOf(0) }
-            var bodyHeightPx by remember { mutableIntStateOf(0) }
-            var viewportTopPx by remember { mutableIntStateOf(0) }
-
-            // When the keyboard opens because the body field was focused, pan the
-            // page so the top of the body field rises to the top of the viewport
-            // (header scrolls out of view). When some other field (e.g. title) was
-            // focused instead, keep the top of the page in view instead of panning
-            // past it.
-            LaunchedEffect(imeVisible, bodyFocused, titleFocused) {
-                if (imeVisible && bodyFocused && headerHeightPx > 0) {
-                    scrollState.animateScrollTo(headerHeightPx)
-                } else if (imeVisible && titleFocused) {
-                    scrollState.animateScrollTo(0)
-                }
-            }
-
-            val onBold: () -> Unit = {
-                bodyFieldValue = wrapSelection(bodyFieldValue, "**", "**")
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onItalic: () -> Unit = {
-                bodyFieldValue = wrapSelection(bodyFieldValue, "*", "*")
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onCode: () -> Unit = {
-                bodyFieldValue = wrapSelection(bodyFieldValue, "`", "`")
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onCodeBlock: () -> Unit = {
-                bodyFieldValue = wrapCodeBlock(bodyFieldValue)
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onLink: () -> Unit = {
-                bodyFieldValue = insertLink(bodyFieldValue)
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onImage: () -> Unit = {
-                bodyFieldValue = insertImage(bodyFieldValue)
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-            val onHeading: (Int) -> Unit = { level ->
-                bodyFieldValue = applyHeading(bodyFieldValue, level)
-                viewModel.onBodyChange(bodyFieldValue.text)
-            }
-
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .onGloballyPositioned { viewportTopPx = it.positionInWindow().y.roundToInt() }
-                    .imePadding(),
-            ) {
-                LaunchedEffect(maxHeight, imeVisible) {
-                    if (!imeVisible) fullMaxHeight = maxHeight
-                }
-
-                val headerH = with(density) { headerHeightPx.toDp() }
-                val buttonsH = with(density) { buttonsHeightPx.toDp() }
-                val toolbarH = with(density) { toolbarHeightPx.toDp() }
-                // top spacer(8) + header->box(12) + box->buttons(8) + buttons internal padding(8)
-                val outerSpacers = 36.dp
-                val bodyBoxMin = (fullMaxHeight - headerH - buttonsH - outerSpacers)
-                    .coerceAtLeast(toolbarH + 1.dp + 120.dp)
-                val textMin = (bodyBoxMin - toolbarH - 1.dp).coerceAtLeast(120.dp)
-
-                val showPinnedToolbar by remember {
-                    derivedStateOf {
-                        bodyHeightPx > 0 &&
-                            bodyTopPx < viewportTopPx &&
-                            (bodyTopPx + bodyHeightPx) > viewportTopPx
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState),
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .onSizeChanged { headerHeightPx = it.height },
-                    ) {
-                        OutlinedTextField(
-                            value = uiState.title,
-                            onValueChange = viewModel::onTitleChange,
-                            placeholder = { Text("Post title", fontSize = 24.sp, fontWeight = FontWeight.Bold) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onFocusChanged { titleFocused = it.isFocused },
-                            textStyle = MaterialTheme.typography.headlineMedium,
-                            singleLine = true,
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        SlugRow(
-                            slug = uiState.displaySlug,
-                            isFrozen = uiState.slugFrozen,
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        FrontMatterCard(
-                            isOpen = uiState.isFrontMatterOpen,
-                            onToggle = viewModel::toggleFrontMatter,
-                            frontMatter = uiState.rawFrontMatter,
-                            onFrontMatterChange = viewModel::onFrontMatterChange,
-                            isDraft = uiState.draft,
-                            onDraftChange = viewModel::setDraft,
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Body field: a single bordered box that contains the formatting
-                    // toolbar as its first row, with the editable text directly below.
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .onGloballyPositioned {
-                                bodyTopPx = it.positionInWindow().y.roundToInt()
-                                bodyHeightPx = it.size.height
-                            }
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(
-                                width = 1.dp,
-                                color = if (bodyFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                shape = RoundedCornerShape(12.dp),
-                            ),
-                    ) {
-                        Column {
-                            Box(modifier = Modifier.onSizeChanged { toolbarHeightPx = it.height }) {
-                                FormattingToolbar(
-                                    wordCount = uiState.wordCount,
-                                    onBold = onBold,
-                                    onItalic = onItalic,
-                                    onCode = onCode,
-                                    onCodeBlock = onCodeBlock,
-                                    onLink = onLink,
-                                    onImage = onImage,
-                                    onHeading = onHeading,
-                                )
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            OutlinedTextField(
-                                value = bodyFieldValue,
-                                onValueChange = { new ->
-                                    bodyFieldValue = new
-                                    viewModel.onBodyChange(new.text)
-                                },
-                                placeholder = { Text("Write in Markdown...", fontFamily = FontFamily.Monospace) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = textMin)
-                                    .onFocusChanged { bodyFocused = it.isFocused },
-                                textStyle = MaterialTheme.typography.bodyMedium,
-                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    disabledBorderColor = Color.Transparent,
-                                ),
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .onSizeChanged { buttonsHeightPx = it.height },
-                    ) {
-                        SavePublishRow(
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                            onSaveLocal = { viewModel.saveLocal() },
-                            onPublish = {
-                                if (viewModel.canPublish()) viewModel.startPublish()
-                            },
-                        )
-                    }
-                }
-
-                // Pinned copy of the toolbar — shown only while the body box is in
-                // view but its natural top has scrolled past the viewport top.
-                if (showPinnedToolbar) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column {
-                                FormattingToolbar(
-                                    wordCount = uiState.wordCount,
-                                    onBold = onBold,
-                                    onItalic = onItalic,
-                                    onCode = onCode,
-                                    onCodeBlock = onCodeBlock,
-                                    onLink = onLink,
-                                    onImage = onImage,
-                                    onHeading = onHeading,
-                                )
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showDiscardDialog) {
-        DiscardDialog(
-            onKeepEditing = { showDiscardDialog = false },
-            onDiscard = {
-                showDiscardDialog = false
-                viewModel.discardChanges()
-            },
-        )
-    }
-
-    if (publishState.showDraftFlip) {
-        DraftFlipDialog(
-            onKeepDraft = { viewModel.keepDraft() },
-            onFlipAndContinue = { viewModel.confirmDraftFlip() },
-        )
-    }
-
-    if (publishState.showPushConfirm) {
-        var pushData by remember { mutableStateOf<PushConfirmData?>(null) }
-        LaunchedEffect(publishState.showPushConfirm) {
-            pushData = viewModel.getPushConfirmDataAsync()
-        }
-        pushData?.let { data ->
-            PushConfirmSheet(
-                data = data,
-                isPushing = publishState.isPushing,
-                error = publishState.error,
-                onCancel = { viewModel.cancelPublish() },
-                onPush = { viewModel.confirmPush() },
-            )
-        }
-    }
-}
-
-@Composable
-private fun EditPreviewToggle(
-    isPreview: Boolean,
-    onEdit: () -> Unit,
-    onPreview: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Row(modifier = Modifier.padding(2.dp)) {
-            ToggleSegment(
-                label = "Edit",
-                isSelected = !isPreview,
-                onClick = onEdit,
-            )
-            ToggleSegment(
-                label = "Preview",
-                isSelected = isPreview,
-                onClick = onPreview,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ToggleSegment(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent,
-        modifier = Modifier.clickable(onClick = onClick),
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-        )
-    }
-}
-
-@Composable
-private fun SlugRow(
-    slug: String,
-    isFrozen: Boolean,
-) {
+  Column(modifier.fillMaxSize()) {
+    // header
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      Modifier
+        .fillMaxWidth()
+        .background(colors.paper)
+        .padding(start = 4.dp, end = 10.dp, bottom = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = "slug:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
+      BloggoIconButton(BloggoIcons.ChevronLeft, "Back to library", onBack)
+      Column(Modifier.weight(1f)) {
+        Text("Editor", style = BloggoTheme.type.rowTitle, color = colors.ink, maxLines = 1)
+        Row(
+          Modifier.padding(top = 2.dp),
+          horizontalArrangement = Arrangement.spacedBy(7.dp),
+          verticalAlignment = Alignment.CenterVertically,
         ) {
+          if (post.kind == DocKind.Page) {
+            // A page doesn't carry a draft workflow the way a post does — a
+            // neutral chip, no state-specific subtitle beside it.
+            BloggoChip("Page", ChipTone.Ghost)
+          } else if (isFragmentPreview) {
+            // Still just an Inbox capture wearing the Editor's clothes — the
+            // Draft chip/copy would claim it's already a real draft, when
+            // nothing is saved as one until "Promote to Post" is tapped.
+            BloggoChip("Capture", ChipTone.Capture)
+          } else {
+            when (post.state) {
+              PostState.Draft -> BloggoChip("Draft", ChipTone.Draft)
+              PostState.InReview -> BloggoChip("In review", ChipTone.PullRequest)
+              PostState.Published -> BloggoChip("Live", ChipTone.Live)
+            }
             Text(
-                text = slug.ifBlank { "—" },
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontFamily = FontFamily.Monospace,
+              when (post.state) {
+                PostState.Draft -> "saved locally"
+                PostState.InReview -> "editing an open pull request"
+                PostState.Published -> "editing a published post"
+              },
+              style = BloggoTheme.type.meta,
+              color = colors.inkFaint,
             )
+          }
         }
-        if (isFrozen) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = "Slug frozen",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+      }
+      SegmentedControl(
+        options = listOf(EditorMode.Edit, EditorMode.Read),
+        selected = EditorMode.Edit,
+        onSelect = { if (it == EditorMode.Read) onPreview() },
+        modifier = Modifier.width(130.dp),
+        label = { it.label },
+      )
+      BloggoIconButton(
+        icon = BloggoIcons.MoreVertical,
+        contentDescription = "Post settings",
+        onClick = { showDetails = true },
+      )
     }
-}
+    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.ruleSoft))
 
-@Composable
-private fun FrontMatterCard(
-    isOpen: Boolean,
-    onToggle: () -> Unit,
-    frontMatter: String,
-    onFrontMatterChange: (String) -> Unit,
-    isDraft: Boolean,
-    onDraftChange: (Boolean) -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Front matter",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    "title · slug · draft managed",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isOpen) "▾" else "▸")
-            }
-            if (isOpen) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Draft",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f),
-                    )
-                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                        Switch(
-                            checked = isDraft,
-                            onCheckedChange = onDraftChange,
-                            modifier = Modifier.scale(0.7f),
-                        )
-                    }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                OutlinedTextField(
-                    value = frontMatter,
-                    onValueChange = onFrontMatterChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    minLines = 4,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PreviewPane(
-    body: String,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val markwon = remember { Markwon.create(context) }
-    val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-
-    AndroidView(
-        factory = { ctx ->
-            android.widget.TextView(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                )
-                setPadding(48, 32, 48, 32)
-                textSize = 15f
-                setLineSpacing(8f, 1f)
-                setTextColor(textColor)
-            }
-        },
-        update = { textView ->
-            markwon.setMarkdown(textView, body)
-            textView.setTextColor(textColor)
-        },
-        modifier = modifier,
+    BasicTextField(
+      value = value,
+      onValueChange = { edit { _ -> it } },
+      modifier = Modifier
+        .testTag("editorMarkdownField")
+        .weight(1f)
+        .fillMaxWidth()
+        .padding(horizontal = 18.dp, vertical = 16.dp),
+      textStyle = BloggoTheme.type.editorSource.copy(color = colors.ink),
+      visualTransformation = transformation,
+      cursorBrush = SolidColor(colors.accent),
+      // Sentences still drives normal capitalize-after-period/paragraph behavior
+      // in body text — that part works and shouldn't be removed. But it's an
+      // IME-level hint with no notion of markdown: many keyboards (notably during
+      // swipe/gesture typing) don't treat the text right after a "#"/"##" marker
+      // as a sentence start, so headings specifically were inconsistently
+      // capitalized. capitalizeHeadingFirstLetter (in `edit()`) is a deterministic
+      // backstop for exactly that case — a no-op if the IME already capitalized it.
+      keyboardOptions = KeyboardOptions(
+        capitalization = KeyboardCapitalization.Sentences,
+        autoCorrectEnabled = true,
+      ),
     )
-}
 
-@Composable
-private fun FormattingToolbar(
-    wordCount: Int,
-    onBold: () -> Unit,
-    onItalic: () -> Unit,
-    onCode: () -> Unit,
-    onCodeBlock: () -> Unit,
-    onLink: () -> Unit,
-    onImage: () -> Unit,
-    onHeading: (Int) -> Unit,
-) {
-    var showHeadingFlyout by remember { mutableStateOf(false) }
-
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ToolbarButton(onClick = onBold, icon = Icons.Default.FormatBold, desc = "Bold")
-                    ToolbarButton(onClick = onItalic, icon = Icons.Default.FormatItalic, desc = "Italic")
-                    ToolbarButton(onClick = onCode, icon = Icons.Default.Code, desc = "Code")
-                    ToolbarButton(onClick = onCodeBlock, icon = Icons.Default.DataObject, desc = "Code block")
-                    ToolbarButton(onClick = onLink, icon = Icons.Default.Link, desc = "Link")
-                    ToolbarButton(onClick = onImage, icon = Icons.Default.Image, desc = "Image")
-                    TextToolbarButton(
-                        onClick = { showHeadingFlyout = !showHeadingFlyout },
-                        label = "H",
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "$wordCount words",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            if (showHeadingFlyout) {
-                HeadingFlyout(
-                    onPick = { level ->
-                        onHeading(level)
-                        showHeadingFlyout = false
-                    },
-                )
-            }
+    EditorToolbar(
+      wordCount = wordCount,
+      onFormat = { action -> edit { action.applyTo(it) } },
+      onFocus = onFocus,
+      onCommit = {
+        if (isFragmentPreview) {
+          onToast("Promote to Post first")
+        } else {
+          showPublish = true
         }
-    }
+      },
+      onInsert = { showInsert = true },
+    )
+  }
+
+  if (showDetails) {
+    PostDetailsSheet(
+      post = post,
+      imagePath = imagePath,
+      tagPool = tagPool,
+      isPushed = post.isPushed(remoteSlugs),
+      isFragmentPreview = isFragmentPreview,
+      onDismiss = { showDetails = false },
+      onSave = { title, slug, date, tags, draft ->
+        showDetails = false
+        val edited = if (post.kind == DocKind.Page) {
+          value.text.withPageFrontmatterEdits(PageFrontmatterEdits(title, slug, date), currentFrontmatterTimestamp())
+        } else {
+          value.text.withFrontmatterEdits(FrontmatterEdits(title, slug, date, tags, draft))
+        }
+        value = TextFieldValue(edited, TextRange(edited.length))
+        slugSyncBaseline = edited
+        lastmodBaseline = edited
+        val counted = edited.markdownWordCount()
+        wordCount = counted
+        onMarkdownChange(edited, counted)
+        onToast(if (post.kind == DocKind.Page) "Page details updated" else "Frontmatter updated")
+      },
+      onCoverGenerated = onCoverGenerated,
+      onDelete = {
+        showDetails = false
+        onDeletePost()
+      },
+      onMoveToInbox = {
+        showDetails = false
+        onMoveToInbox()
+      },
+      onPromoteToPost = {
+        showDetails = false
+        onPromoteToPost()
+      },
+      onDeleteFragment = {
+        showDetails = false
+        onDeleteFragment()
+      },
+    )
+  }
+
+  if (showPublish) {
+    PublishSheet(
+      post = post.copy(markdown = value.text),
+      connection = connection,
+      stagedMedia = stagedMediaForPost,
+      isPublishing = isPublishing,
+      publishResult = publishResult,
+      onDismiss = { showPublish = false },
+      onPublish = onPublish,
+    )
+  }
+
+  if (showInsert) {
+    InsertSheet(
+      onDismiss = { showInsert = false },
+      onInsertImage = {
+        showInsert = false
+        onInsertImage()
+      },
+      onFormat = { action -> edit { action.applyTo(it) } },
+    )
+  }
 }
 
+/** Shared with [com.rrajath.bloggo.ui.preview.PreviewScreen]: Edit and Read are
+ * the same segmented control in two places, not two different controls. */
+enum class EditorMode(val label: String) { Edit("Edit"), Read("Read") }
+
 @Composable
-private fun SavePublishRow(
-    modifier: Modifier = Modifier,
-    onSaveLocal: () -> Unit,
-    onPublish: () -> Unit,
+private fun EditorToolbar(
+  wordCount: Int,
+  onFormat: (MarkdownAction) -> Unit,
+  onFocus: () -> Unit,
+  onCommit: () -> Unit,
+  onInsert: () -> Unit,
 ) {
+  val colors = BloggoTheme.colors
+  // The shell's imePadding() only covers the keyboard inset; the toolbar sits at the
+  // very bottom of the screen, so it also needs its own bottom padding for the
+  // navigation gesture bar or its buttons get overlapped by the system bar.
+  Column(Modifier.navigationBarsPadding()) {
+    Box(Modifier.fillMaxWidth().height(1.dp).background(colors.ruleSoft))
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      Modifier
+        .fillMaxWidth()
+        .background(colors.paperRaised)
+        .horizontalScroll(rememberScrollState())
+        .padding(horizontal = 8.dp, vertical = 6.dp),
+      verticalAlignment = Alignment.CenterVertically,
     ) {
-        OutlinedButton(
-            onClick = onSaveLocal,
-            modifier = Modifier.weight(1f),
-        ) {
-            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Save local")
-        }
-        Button(
-            onClick = onPublish,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-            ),
-        ) {
-            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Publish")
-        }
-    }
-}
-
-@Composable
-private fun ToolbarButton(
-    onClick: () -> Unit,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    desc: String,
-) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
-        Icon(
-            imageVector = icon,
-            contentDescription = desc,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
-@Composable
-private fun TextToolbarButton(onClick: () -> Unit, label: String) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+      ToolbarButton({ onFormat(MarkdownAction.Heading) }, "Heading") {
+        Text("#", style = BloggoTheme.type.displaySmall.copy(fontSize = 17.sp), color = colors.inkMuted)
+      }
+      ToolbarButton({ onFormat(MarkdownAction.Bold) }, "Bold") {
+        Text("B", style = BloggoTheme.type.button.copy(fontWeight = FontWeight.ExtraBold), color = colors.inkMuted)
+      }
+      ToolbarButton({ onFormat(MarkdownAction.Italic) }, "Italic") {
         Text(
-            text = label,
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface,
+          "I",
+          style = BloggoTheme.type.articleQuote.copy(fontFamily = BloggoFonts.Reading, fontStyle = FontStyle.Italic),
+          color = colors.inkMuted,
         )
+      }
+      ToolbarButton({ onFormat(MarkdownAction.Code) }, "Inline code") {
+        Text("‹/›", style = BloggoTheme.type.meta, color = colors.inkMuted)
+      }
+      ToolbarIcon(BloggoIcons.Link, "Link", { onFormat(MarkdownAction.Link) })
+      ToolbarIcon(BloggoIcons.ListNumbered, "Numbered list", { onFormat(MarkdownAction.OrderedList) })
+      ToolbarIcon(BloggoIcons.Plus, "Insert", onInsert)
+      // Focus mode entry point is intentionally hidden/unreachable for now.
+      // See PROGRESS.md open items: FocusScreen/FocusMode is currently dead code.
+      if (false) {
+        ToolbarIcon(BloggoIcons.FocusMode, "Focus mode", onFocus, accent = true)
+      }
+      ToolbarIcon(BloggoIcons.Commit, "Commit or open a pull request", onCommit, accent = true)
+
+      Text(
+        "%,d w".format(wordCount),
+        style = BloggoTheme.type.meta,
+        color = colors.inkFaint,
+        modifier = Modifier.padding(horizontal = 10.dp),
+      )
     }
+  }
 }
 
 @Composable
-private fun HeadingFlyout(
-    onPick: (Int) -> Unit,
+private fun ToolbarIcon(
+  icon: BloggoIcon,
+  description: String,
+  onClick: () -> Unit,
+  accent: Boolean = false,
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 8.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            for (level in 1..6) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    onClick = { onPick(level) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            "#".repeat(level),
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Heading $level",
-                            fontSize = (20 - level).sp,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DiscardDialog(
-    onKeepEditing: () -> Unit,
-    onDiscard: () -> Unit,
-) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onKeepEditing,
-        title = { Text("Discard changes?") },
-        text = { Text("You have unsaved changes. Are you sure you want to discard them?") },
-        confirmButton = {
-            TextButton(onClick = onDiscard) {
-                Text("Discard", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onKeepEditing) {
-                Text("Keep editing")
-            }
-        },
+  ToolbarButton(onClick, description) {
+    com.rrajath.bloggo.designsystem.icon.BloggoIcon(
+      icon,
+      contentDescription = null,
+      tint = if (accent) BloggoTheme.colors.accent else BloggoTheme.colors.inkMuted,
     )
+  }
 }
 
-/**
- * Wraps the current selection with [before]/[after] markers. With no selection, the
- * markers are inserted at the cursor with the cursor left collapsed between them. With
- * a selection, the selected text is enclosed and stays selected.
- */
-private fun wrapSelection(
-    value: TextFieldValue,
-    before: String,
-    after: String,
-): TextFieldValue {
-    val text = value.text
-    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val selectedText = text.substring(start, end)
-    val newText = text.substring(0, start) + before + selectedText + after + text.substring(end)
-    val newSelection = if (selectedText.isEmpty()) {
-        TextRange(start + before.length)
-    } else {
-        TextRange(start + before.length, start + before.length + selectedText.length)
-    }
-    return TextFieldValue(newText, newSelection)
-}
-
-/**
- * Wraps the current selection in a fenced code block, normalizing surrounding
- * whitespace so the opening/closing ``` fences always sit on their own line. With no
- * selection, the cursor is left on the blank line between the two fences.
- */
-private fun wrapCodeBlock(value: TextFieldValue): TextFieldValue {
-    val text = value.text
-    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val selectedText = text.substring(start, end)
-
-    val leadingNewline = if (start > 0 && text[start - 1] != '\n') "\n" else ""
-    val trailingNewline = if (end < text.length && text[end] != '\n') "\n" else ""
-    val innerTrailingNewline = if (selectedText.isEmpty() || !selectedText.endsWith("\n")) "\n" else ""
-
-    val opening = leadingNewline + "```\n"
-    val newText = text.substring(0, start) +
-        opening +
-        selectedText +
-        innerTrailingNewline +
-        "```" +
-        trailingNewline +
-        text.substring(end)
-
-    val cursorBase = start + opening.length
-    val newSelection = if (selectedText.isEmpty()) {
-        TextRange(cursorBase)
-    } else {
-        TextRange(cursorBase, cursorBase + selectedText.length)
-    }
-    return TextFieldValue(newText, newSelection)
-}
-
-private fun insertLink(value: TextFieldValue): TextFieldValue {
-    val text = value.text
-    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val selectedText = if (start == end) "link text" else text.substring(start, end)
-    val newText = text.substring(0, start) + "[$selectedText](https://)" + text.substring(end)
-    val urlStart = start + selectedText.length + 3
-    return TextFieldValue(newText, TextRange(urlStart, urlStart + 8))
-}
-
-private fun insertImage(value: TextFieldValue): TextFieldValue {
-    val text = value.text
-    val start = minOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val end = maxOf(value.selection.start, value.selection.end).coerceIn(0, text.length)
-    val selectedText = if (start == end) "alt text" else text.substring(start, end)
-    val newText = text.substring(0, start) + "![$selectedText](https://)" + text.substring(end)
-    val urlStart = start + selectedText.length + 4
-    return TextFieldValue(newText, TextRange(urlStart, urlStart + 8))
-}
-
-private fun applyHeading(value: TextFieldValue, level: Int): TextFieldValue {
-    val text = value.text
-    var lineStart = value.selection.start
-    while (lineStart > 0 && text[lineStart - 1] != '\n') lineStart--
-    var lineEnd = lineStart
-    while (lineEnd < text.length && text[lineEnd] != '\n') lineEnd++
-
-    val line = text.substring(lineStart, lineEnd).replace(Regex("^#{1,6}\\s*"), "")
-    val newLine = "#".repeat(level) + " " + line
-    val newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
-    val cursor = lineStart + newLine.length
-    return TextFieldValue(newText, TextRange(cursor))
+@Preview(heightDp = 860)
+@Composable
+private fun EditorPreview() {
+  BloggoTheme {
+    EditorScreen(
+      post = SampleData.draft,
+      imagePath = "static/images/",
+      tagPool = listOf("ai", "tooling", "craft"),
+      connection = RepoConnection(),
+      remoteSlugs = emptySet(),
+      stagedMediaForPost = emptyList(),
+      isPublishing = false,
+      publishResult = null,
+      pendingInsertImage = null,
+      onMarkdownChange = { _, _ -> },
+      onBack = {},
+      onPreview = {},
+      onFocus = {},
+      onToast = {},
+      onCoverGenerated = {},
+      onDeletePost = {},
+      onMoveToInbox = {},
+      onPublish = { _, _ -> },
+      onInsertImage = {},
+      onPendingInsertConsumed = {},
+    )
+  }
 }

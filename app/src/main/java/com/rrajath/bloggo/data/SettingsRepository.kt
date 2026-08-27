@@ -1,84 +1,46 @@
 package com.rrajath.bloggo.data
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
+import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.rrajath.bloggo.ui.theme.ThemeMode
-import kotlinx.coroutines.flow.Flow
+import androidx.datastore.preferences.preferencesDataStore
+import com.rrajath.bloggo.designsystem.component.ArtMode
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class SettingsRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>,
-    private val secureStorage: SecureStorage,
-) {
-    companion object {
-        private val REPOSITORY = stringPreferencesKey("repository")
-        private val BRANCH = stringPreferencesKey("branch")
-        private val CONTENT_PATH = stringPreferencesKey("content_path")
-        private val IMAGE_REPO_PATH = stringPreferencesKey("image_repo_path")
-        private val IMAGE_URL_BASE = stringPreferencesKey("image_url_base")
-        private val BLOG_BASE_URL = stringPreferencesKey("blog_base_url")
-        private val FM_TEMPLATE = stringPreferencesKey("fm_template")
-        private val THEME = stringPreferencesKey("theme")
-    }
+/** Overrides the system theme. [System] tracks the device setting. */
+enum class ThemeMode {
+  System, Light, Dark;
 
-    val settings: Flow<Settings> = dataStore.data.map { prefs ->
-        Settings(
-            githubPat = secureStorage.getPat(),
-            repository = prefs[REPOSITORY] ?: "",
-            branch = prefs[BRANCH] ?: "main",
-            contentPath = prefs[CONTENT_PATH] ?: "content/posts",
-            imageRepoPath = prefs[IMAGE_REPO_PATH] ?: "static/images",
-            imageUrlBase = prefs[IMAGE_URL_BASE] ?: "/images",
-            blogBaseUrl = prefs[BLOG_BASE_URL] ?: "",
-            frontMatterTemplate = prefs[FM_TEMPLATE] ?: "date: {date}\ntags: []\nsummary: \"\"",
-            theme = prefs[THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
-        )
-    }
+  companion object {
+    fun fromStored(name: String?): ThemeMode = entries.find { it.name == name } ?: System
+  }
+}
 
-    suspend fun savePat(pat: String) {
-        secureStorage.setPat(pat)
-    }
+private fun artModeFromStored(name: String?): ArtMode =
+  ArtMode.entries.find { it.name == name } ?: ArtMode.Generated
 
-    suspend fun saveRepository(value: String) =
-        dataStore.edit { it[REPOSITORY] = value }
+private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
-    suspend fun saveBranch(value: String) =
-        dataStore.edit { it[BRANCH] = value }
+/**
+ * The app's small, typed settings: theme and the Settings screen's cover-art toggle.
+ *
+ * Preferences DataStore rather than the Proto DataStore the TDD names, since a
+ * couple of enums do not earn a `.proto` schema and codegen step. Revisit if the
+ * settings surface grows enough that untyped keys start to hurt.
+ */
+class SettingsRepository(context: Context) {
+  private val dataStore = context.settingsDataStore
+  private val themeModeKey = stringPreferencesKey("theme_mode")
+  private val artModeKey = stringPreferencesKey("art_mode")
 
-    suspend fun saveContentPath(value: String) =
-        dataStore.edit { it[CONTENT_PATH] = value }
+  val themeMode = dataStore.data.map { prefs -> ThemeMode.fromStored(prefs[themeModeKey]) }
+  val artMode = dataStore.data.map { prefs -> artModeFromStored(prefs[artModeKey]) }
 
-    suspend fun saveImageRepoPath(value: String) =
-        dataStore.edit { it[IMAGE_REPO_PATH] = value }
+  suspend fun setThemeMode(mode: ThemeMode) {
+    dataStore.edit { prefs -> prefs[themeModeKey] = mode.name }
+  }
 
-    suspend fun saveImageUrlBase(value: String) =
-        dataStore.edit { it[IMAGE_URL_BASE] = value }
-
-    suspend fun saveBlogBaseUrl(value: String) =
-        dataStore.edit { it[BLOG_BASE_URL] = value }
-
-    suspend fun saveFrontMatterTemplate(value: String) =
-        dataStore.edit { it[FM_TEMPLATE] = value }
-
-    suspend fun saveTheme(value: ThemeMode) =
-        dataStore.edit { it[THEME] = value.name }
-
-    suspend fun saveAll(settings: Settings) {
-        savePat(settings.githubPat)
-        dataStore.edit { prefs ->
-            prefs[REPOSITORY] = settings.repository
-            prefs[BRANCH] = settings.branch
-            prefs[CONTENT_PATH] = settings.contentPath
-            prefs[IMAGE_REPO_PATH] = settings.imageRepoPath
-            prefs[IMAGE_URL_BASE] = settings.imageUrlBase
-            prefs[BLOG_BASE_URL] = settings.blogBaseUrl
-            prefs[FM_TEMPLATE] = settings.frontMatterTemplate
-            prefs[THEME] = settings.theme.name
-        }
-    }
+  suspend fun setArtMode(mode: ArtMode) {
+    dataStore.edit { prefs -> prefs[artModeKey] = mode.name }
+  }
 }
