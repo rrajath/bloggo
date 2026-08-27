@@ -19,7 +19,7 @@ These three are one feature in practice: an image only has somewhere to come fro
 
 ## How this was meant to work (answering "how was Media screen meant to be used")
 
-The HTML prototype (`design/bloggo-prototype.html`) already specifies this, and the Android port never finished it:
+The HTML prototype (`internal/design/bloggo-prototype.html`) already specifies this, and the Android port never finished it:
 - **Media** is a browser/manager over the repo's real `static/images/` (filters: All / Unused / Covers / Screenshots), not a standalone upload target.
 - The editor's **Insert** sheet (`data-sheet="insert"`, never built in the Android app) has three rows — **Image**, **Code block**, **Divider** — plus a "Shortcodes in your repo" section (Callout / Aside / Figure, read from `layouts/shortcodes/`) that stays **out of scope this pass**; `MarkdownAction.Callout`/`.Aside`/`.figure(...)` already exist in the codebase with zero callers today, waiting for exactly this.
 - Insert → **Image** (`data-go="media"`) jumps into the Media screen; picking a file there returns to the editor with the image inserted and staged against that specific post, to be committed together with the post text — this is the "committed with the post" the dropzone copy already promises.

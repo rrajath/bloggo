@@ -1,9 +1,11 @@
-name: Build APKs
+name: Build
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -14,8 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -26,47 +26,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Compute version
-        id: version
+      - name: Check tag matches gradle.properties
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG="${{ github.ref_name }}"
-          else
-            # If this commit already has an explicit v* tag, skip the auto-release
-            # (avoids a duplicate release when a tag is pushed alongside main)
-            EXISTING=$(git tag --points-at HEAD | grep -E '^v[0-9]' | head -1)
-            if [[ -n "$EXISTING" ]]; then
-              echo "skip=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            TAG="v1.0.${{ github.run_number }}"
+          GRADLE_VERSION=$(grep '^bloggo.versionName=' gradle.properties | cut -d= -f2)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$GRADLE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match bloggo.versionName=$GRADLE_VERSION in gradle.properties"
+            exit 1
           fi
-          echo "skip=false" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Build debug APK
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
-          VERSION_NAME: ${{ steps.version.outputs.tag }}
-          SENTRY_RELEASE: ${{ steps.version.outputs.tag }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: ./gradlew assembleDebug
-
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/keystore.jks
-
-      - name: Build release APK
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
-          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          BUILD_NUMBER: ${{ github.run_number }}
-          VERSION_NAME: ${{ steps.version.outputs.tag }}
-          SENTRY_RELEASE: ${{ steps.version.outputs.tag }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: ./gradlew assembleRelease
+      - name: Build and test
+        run: ./gradlew assembleDebug test
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
@@ -75,7 +46,23 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
 
+      # Everything below runs only for v*.*.* tag pushes.
+
+      - name: Decode keystore
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/keystore.jks
+
+      - name: Build release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
       - name: Upload release APK artifact
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
@@ -83,11 +70,11 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release
-        if: steps.version.outputs.skip != 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk

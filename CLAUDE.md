@@ -94,8 +94,9 @@ Update the specific file(s) in `internal/docs/` that are affected, and `README.m
 
 `internal/PROGRESS.md` and `internal/PERF_IMPROVEMENT.md` are local working notes. `PROGRESS.md` is gitignored.
 
-## Release build and CI
+## Versioning, release build, and CI
 
-`.github/workflows/build.yml` builds debug and release APKs on every push to `main` and on `v*` tags, and cuts a GitHub Release. The workflow still decodes a keystore and passes `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, `BUILD_NUMBER`, `VERSION_NAME`, `SENTRY_RELEASE`, and `SENTRY_AUTH_TOKEN` into the Gradle build.
-
-Known gap after the multi-module import: `app/build.gradle.kts` no longer reads any of those. The Sentry Gradle plugin, the `signingConfigs` block, and the `System.getenv("BUILD_NUMBER" / "VERSION_NAME")` version wiring were all dropped. Until that is restored, CI release APKs are not release-signed and are not versioned from the run number. The previous wiring is in `git show 479c8bb:app/build.gradle.kts`.
+- **Version:** `versionName` is hand-managed in `gradle.properties` as `bloggo.versionName` (`MAJOR.MINOR.PATCH`). `app/build.gradle.kts` derives `versionCode` as `MAJOR * 10000 + MINOR * 100 + PATCH` (`1.4.3` -> `10403`; `MINOR`/`PATCH` capped at 99) and fails the build on a malformed value. No env vars feed the version.
+- **Signing:** the `release` `signingConfig` reads `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. CI decodes the keystore from the `KEYSTORE_BASE64` secret. With no `KEYSTORE_PATH` the release build stays unsigned (`app-release-unsigned.apk`).
+- **CI** (`.github/workflows/build.yml`): every push to `main` and every PR runs `./gradlew assembleDebug test`. A `v*.*.*` tag push also builds the signed release APK and cuts a GitHub Release (debug + release APKs attached). The tag build fails unless the tag matches `bloggo.versionName`.
+- **Sentry:** removed. No crash reporting is wired in.

@@ -1,7 +1,7 @@
 # Bloggo design system
 
-Extracted from `design/bloggo-prototype.html` and implemented in
-`android/designsystem/`. The prototype is the reference; where this document and
+Extracted from `internal/design/bloggo-prototype.html` and implemented in
+the `designsystem/` module. The prototype is the reference; where this document and
 the prototype disagree, the prototype wins and this document is wrong.
 
 Read this before adding or restyling any UI. Do not invent colours, spacing, or
@@ -268,7 +268,7 @@ All in `designsystem/component/`. Each has an `@Preview`.
 
 ## 8. Cover art
 
-`android/coverart/` is a standalone module with no dependency on the design
+The `coverart/` module is standalone with no dependency on the design
 system, so it can be dropped into any app or run from a build script.
 
 Ported from the prototype's `paint()`, and verified against it: the golden values
@@ -322,7 +322,7 @@ photographs rather than generated decoration.
 
 ## 10. Adding to the system
 
-1. Add it to `design/bloggo-prototype.html` first. The prototype is the reference.
+1. Add it to `internal/design/bloggo-prototype.html` first. The prototype is the reference.
 2. Implement it in `designsystem/`, reading tokens through `BloggoTheme`.
 3. Give it an `@Preview`, and a second one for the state that is easy to get
    wrong (no art, over limit, empty).

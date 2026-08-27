@@ -1,6 +1,6 @@
 # Bloggo prototype notes
 
-Design rationale for `design/bloggo-prototype.html`. One self-contained file: no
+Design rationale for `internal/design/bloggo-prototype.html`. One self-contained file: no
 build step, no dependencies. Open it in a browser, or on a phone where the device
 frame drops away below 900px.
 
@@ -135,7 +135,7 @@ Three differences from editing a post, all deliberate:
 
 ## Testing
 
-`design/bloggo-prototype.html` has no test suite of its own. It was verified with a
+`internal/design/bloggo-prototype.html` has no test suite of its own. It was verified with a
 jsdom pass that boots the page, walks every screen, and asserts 61 behaviours
 covering navigation, the art toggle, the live link states, the Mastodon character
 limit logic, shortcode rendering, and the diff.

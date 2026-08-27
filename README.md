@@ -21,12 +21,17 @@ surface in front of it.
 
 | Path | What it is |
 |---|---|
-| `design/bloggo-prototype.html` | The interactive UI prototype. One file, no build step. Open it in a browser, or on a phone, where the device frame drops away. |
-| `android/` | A buildable Compose project: the cover art generator, the design system, and every screen laid out against sample data. |
-| `docs/DESIGN_SYSTEM.md` | Tokens, typography, icons, components. Read before touching any UI. |
-| `docs/ANDROID_TDD.md` | Technical design for building the app: GitHub layer, offline outbox, auth, milestones, risks. |
-| `docs/PROTOTYPE_NOTES.md` | Why the prototype is the way it is. |
+| `app/` | The Android application: navigation shell, screens, and the data layer that talks to GitHub. |
+| `designsystem/` | Compose theme, typography, bundled fonts, shared components, and the markdown editor transformation. |
+| `coverart/` | The deterministic cover-art generator, seeded from the post slug. |
+| `internal/design/bloggo-prototype.html` | The interactive UI prototype. One file, no build step. Open it in a browser, or on a phone, where the device frame drops away. |
+| `internal/docs/DESIGN_SYSTEM.md` | Tokens, typography, icons, components. Read before touching any UI. |
+| `internal/docs/ANDROID_TDD.md` | Technical design for building the app: GitHub layer, offline outbox, auth, milestones, risks. |
+| `internal/docs/PROTOTYPE_NOTES.md` | Why the prototype is the way it is. |
 | `tools/` | Icon extraction and Kotlin generation from the prototype's SVG. |
+| `.github/workflows/build.yml` | CI: builds and tests on every push and PR; a `v*.*.*` tag also builds a signed release APK and cuts a GitHub Release. |
+
+The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:coverart`.
 
 ## Features
 
@@ -58,7 +63,7 @@ surface in front of it.
   only — no equivalent in the HTML prototype) opens straight to the Inbox
   with the capture overlay already open and focused
 - Pages tab (Android only, in place of the old Media tab — see
-  `docs/PROTOTYPE_NOTES.md`'s "Pages replaced Media"): the top-level
+  `internal/docs/PROTOTYPE_NOTES.md`'s "Pages replaced Media"): the top-level
   `content/*.md` files a Hugo site has (`about.md`, `uses.md`, and so on),
   pulled straight from the connected repo. A page already pushed opens into
   Preview; one that only exists locally opens into Editor, same as a post's
@@ -78,14 +83,14 @@ surface in front of it.
 - Share to several Mastodon accounts at once, with per-instance character
   limits (`MastodonScreen.kt`) — built, but no longer reachable from
   anywhere in the app now that Preview's Share button opens the native
-  share sheet instead. Left in place rather than deleted; see PROGRESS.md.
+  share sheet instead. Left in place rather than deleted.
 
 ## Setup
 
 ### The prototype
 
 ```sh
-open design/bloggo-prototype.html
+open internal/design/bloggo-prototype.html
 ```
 
 No dependencies, no server. Everything runs from the one file.
@@ -93,11 +98,12 @@ No dependencies, no server. Everything runs from the one file.
 ### The Android project
 
 Requires JDK 17 or newer and the Android SDK (compileSdk 36, build-tools 36).
+Run from the repository root:
 
 ```sh
-cd android
-./gradlew assembleDebug          # build
-./gradlew testDebugUnitTest      # 115 unit tests
+./gradlew assembleDebug          # build the debug APK
+./gradlew test                   # 206 unit tests across the three modules
+./gradlew build                  # assemble every module, run all tests and lint
 ./gradlew installDebug           # to a connected device or emulator
 ```
 
@@ -109,6 +115,28 @@ android run
 ```
 
 minSdk is 34.
+
+### Versioning
+
+`versionName` is hand-managed in `gradle.properties` as `bloggo.versionName`
+(format `MAJOR.MINOR.PATCH`). `app/build.gradle.kts` derives `versionCode` from
+it: `1.4.3` becomes `10403` (`MAJOR * 10000 + MINOR * 100 + PATCH`, so `MINOR`
+and `PATCH` are each capped at 99). Bump the property before tagging a release.
+
+### CI and releases
+
+`.github/workflows/build.yml`:
+
+- **Every push to `main` and every PR:** assembles the debug APK and runs the
+  full unit test suite. No APK is published.
+- **A `v*.*.*` tag push only:** additionally builds a signed release APK and
+  publishes a GitHub Release with the debug and release APKs attached. The job
+  fails if the tag does not match `bloggo.versionName` (tag `v1.4.3` requires
+  `bloggo.versionName=1.4.3`).
+
+A local `./gradlew assembleRelease` produces an unsigned APK unless the signing
+variables are set: `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`,
+`KEY_PASSWORD`. CI decodes the keystore from the `KEYSTORE_BASE64` secret.
 
 ### Regenerating the icon set
 
@@ -129,17 +157,16 @@ they disagree, the prototype is right.
 The cover art generator is the exception worth knowing about: it is a port of the
 prototype's `paint()` verified against the JavaScript original's own output, so a
 given post slug produces a byte-identical picture on both platforms. See
-`docs/DESIGN_SYSTEM.md` §8.
+`internal/docs/DESIGN_SYSTEM.md` §8.
 
 ## Status
 
 The prototype is complete. The Android project builds, runs, and talks to a real
 connected GitHub repository: validating the connection and detecting Hugo,
 listing and caching posts and images, and committing a post (with any images it
-references) straight to the configured branch through the Git Data API. 115
-unit tests across `:app` alone, plus the cover generator's and the markdown
-highlighter's own suites in `:coverart`/`:designsystem`.
+references) straight to the configured branch through the Git Data API. 206
+unit tests across `:app`, `:coverart`, and `:designsystem`.
 
 Still ahead: opening a pull request instead of a direct commit, a line-level
 diff before publishing, and an offline outbox for queued commits — see
-`docs/ANDROID_TDD.md` §13/§16 for the exact scope.
+`internal/docs/ANDROID_TDD.md` §13/§16 for the exact scope.

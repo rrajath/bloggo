@@ -2,9 +2,9 @@
 
 Status: draft for review
 Date: 2026-08-18
-Reference UI: `design/bloggo-prototype.html`
-Design system: `docs/DESIGN_SYSTEM.md`
-Scaffold: `android/`
+Reference UI: `internal/design/bloggo-prototype.html`
+Design system: `internal/docs/DESIGN_SYSTEM.md`
+Scaffold: `app/`, `designsystem/`, `coverart/` (Gradle modules at the repo root)
 
 ---
 
@@ -104,7 +104,7 @@ Unidirectional: a `ViewModel` exposes one immutable `UiState` through
 
 Screens are `@Composable` functions taking data and callbacks, never a view
 model, with a thin stateful wrapper that supplies them. This is what makes every
-screen previewable, and the scaffold in `android/app/src/main/java/com/rrajath/bloggo/ui/`
+screen previewable, and the scaffold in `app/src/main/java/com/rrajath/bloggo/ui/`
 already follows it.
 
 ### 4.2 Navigation
@@ -712,7 +712,7 @@ writer entered actually works before anything downstream depends on it; the
 tree and content calls above are the second.
 
 - `:app` — P0 item 6, the commit flow (direct-commit half only; see
-  `docs/WRITE_PUBLISH_MEDIA_PLAN.md`), plus P1 item 8 (media library, upload,
+  `internal/docs/WRITE_PUBLISH_MEDIA_PLAN.md`), plus P1 item 8 (media library, upload,
   insert), built together since a photo only has somewhere to go once the
   commit path exists:
   - `GitHubClient.commitFiles`: the real Git Data API sequence — one blob per
