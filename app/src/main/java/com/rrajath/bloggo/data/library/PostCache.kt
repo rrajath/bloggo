@@ -15,6 +15,8 @@ import androidx.sqlite.execSQL
 import android.content.Context
 import com.rrajath.bloggo.data.inbox.FragmentDao
 import com.rrajath.bloggo.data.inbox.FragmentEntity
+import com.rrajath.bloggo.data.review.ReadabilityIgnoreDao
+import com.rrajath.bloggo.data.review.ReadabilityIgnoreEntity
 
 /**
  * ANDROID_TDD.md §5.2: the tree gives paths and blob SHAs, not titles, so the
@@ -205,9 +207,30 @@ private val MIGRATION_5_6 = object : Migration(5, 6) {
   }
 }
 
+/** Adds the per-post store of readability findings the writer has chosen to
+ * ignore on the review screen. Keyed by post slug plus an opaque
+ * `category + text` string; a row is only ever removed by the screen's
+ * recompute action. */
+private val MIGRATION_6_7 = object : Migration(6, 7) {
+  override fun migrate(connection: SQLiteConnection) {
+    connection.execSQL(
+      """
+      CREATE TABLE IF NOT EXISTS `readability_ignore` (
+        `slug` TEXT NOT NULL,
+        `ignoreKey` TEXT NOT NULL,
+        PRIMARY KEY(`slug`, `ignoreKey`)
+      )
+      """.trimIndent()
+    )
+  }
+}
+
 @Database(
-  entities = [PostCacheEntity::class, PageCacheEntity::class, LocalPostEntity::class, FragmentEntity::class],
-  version = 6,
+  entities = [
+    PostCacheEntity::class, PageCacheEntity::class, LocalPostEntity::class,
+    FragmentEntity::class, ReadabilityIgnoreEntity::class,
+  ],
+  version = 7,
   exportSchema = false,
 )
 abstract class BloggoDatabase : RoomDatabase() {
@@ -215,13 +238,17 @@ abstract class BloggoDatabase : RoomDatabase() {
   abstract fun pageCacheDao(): PageCacheDao
   abstract fun localPostDao(): LocalPostDao
   abstract fun fragmentDao(): FragmentDao
+  abstract fun readabilityIgnoreDao(): ReadabilityIgnoreDao
 
   companion object {
     @Volatile private var instance: BloggoDatabase? = null
 
     fun get(context: Context): BloggoDatabase = instance ?: synchronized(this) {
       instance ?: Room.databaseBuilder(context, BloggoDatabase::class.java, "bloggo.db")
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        .addMigrations(
+          MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+          MIGRATION_6_7,
+        )
         .build()
         .also { instance = it }
     }

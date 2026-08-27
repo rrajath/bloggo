@@ -59,6 +59,7 @@ import com.rrajath.bloggo.data.media.clearStagedMediaCache
 import com.rrajath.bloggo.data.media.stageFromUri
 import com.rrajath.bloggo.data.publish.PostPublishRepository
 import com.rrajath.bloggo.data.publish.PublishResult
+import com.rrajath.bloggo.data.review.ReadabilityIgnoreStore
 import com.rrajath.bloggo.designsystem.BloggoTheme
 import com.rrajath.bloggo.designsystem.component.ArtMode
 import com.rrajath.bloggo.designsystem.component.BloggoTab
@@ -291,6 +292,10 @@ fun BloggoApp(launchIntent: Intent? = null) {
   // (data/inbox/FragmentStore.kt) for why a fragment needs no mirrored file
   // the way a local post does.
   val fragmentStore = remember { FragmentStore(BloggoDatabase.get(context).fragmentDao()) }
+  // Per-post store of readability findings the writer has ignored on the review
+  // screen; cleared for a post only by that screen's recompute action.
+  val readabilityIgnoreStore =
+    remember { ReadabilityIgnoreStore(BloggoDatabase.get(context).readabilityIgnoreDao()) }
   val postPublishRepository = remember { PostPublishRepository(gitHubClient) }
   val mediaRepository = remember { MediaRepository(gitHubClient) }
   val scope = rememberCoroutineScope()
@@ -1224,12 +1229,36 @@ fun BloggoApp(launchIntent: Intent? = null) {
               onExit = ::back,
             )
 
-            is Route.Review -> ReviewScreen(
-              markdown = postBySlug(route.slug).markdown,
-              enabledChecks = readabilityChecks,
-              onBack = ::back,
-              onToast = { toast = it },
-            )
+            is Route.Review -> {
+              // Load the ignored-findings set before the first analysis so a
+              // dismissed highlight never flashes back on reopen. Keyed by slug
+              // so switching posts reloads; null means "still loading".
+              var ignoredKeys by remember(route.slug) { mutableStateOf<Set<String>?>(null) }
+              LaunchedEffect(route.slug) {
+                ignoredKeys = readabilityIgnoreStore.load(route.slug)
+              }
+              val keys = ignoredKeys
+              if (keys == null) {
+                Box(Modifier.fillMaxSize().background(BloggoTheme.colors.paper))
+              } else {
+                ReviewScreen(
+                  markdown = postBySlug(route.slug).markdown,
+                  enabledChecks = readabilityChecks,
+                  ignoredKeys = keys,
+                  onIgnore = { key ->
+                    ignoredKeys = keys + key
+                    scope.launch { readabilityIgnoreStore.ignore(route.slug, key) }
+                  },
+                  onRecompute = {
+                    ignoredKeys = emptySet()
+                    scope.launch { readabilityIgnoreStore.clear(route.slug) }
+                    toast = "Checks recomputed"
+                  },
+                  onBack = ::back,
+                  onToast = { toast = it },
+                )
+              }
+            }
 
             Route.Mastodon -> MastodonScreen(
               accounts = SampleData.accounts,

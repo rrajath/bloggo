@@ -1,6 +1,7 @@
 package com.rrajath.bloggo.ui.review
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,16 +15,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -43,23 +50,29 @@ import com.rrajath.bloggo.designsystem.icon.BloggoIcons
  * in the editor toolbar. Read-only: fixing a flagged sentence means going back
  * to Edit. Structure mirrors the prototype's `review` screen — a pinned summary
  * and legend over the scrolling prose, with the `--an-*` washes stacked on
- * flagged sentences and words. Tapping a highlight shows the reason as a toast.
+ * flagged sentences and words. Tapping a highlight shows the reason as a toast;
+ * long-pressing one offers to ignore it, and the recompute action in the header
+ * clears every ignore for the post and re-runs the pass.
  */
 @Composable
 fun ReviewScreen(
   markdown: String,
   enabledChecks: Set<ReadabilityCheck>,
+  ignoredKeys: Set<String>,
+  onIgnore: (String) -> Unit,
+  onRecompute: () -> Unit,
   onBack: () -> Unit,
   onToast: (String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val colors = BloggoTheme.colors
-  val report = remember(markdown, enabledChecks) {
-    ReadabilityAnalyzer.analyze(markdown, enabledChecks)
+  val report = remember(markdown, enabledChecks, ignoredKeys) {
+    ReadabilityAnalyzer.analyze(markdown, enabledChecks, ignoredKeys)
   }
+  var pendingIgnore by remember { mutableStateOf<String?>(null) }
 
   Column(modifier.fillMaxSize().background(colors.paper)) {
-    ReviewHeader(onBack = onBack)
+    ReviewHeader(onBack = onBack, onRecompute = onRecompute)
 
     Summary(report)
     Legend(report, enabledChecks)
@@ -77,7 +90,9 @@ fun ReviewScreen(
           maxLines = 3,
         )
       } else {
-        report.blocks.forEach { block -> ReviewBlock(block, onToast) }
+        report.blocks.forEach { block ->
+          ReviewBlock(block, onToast, onRequestIgnore = { pendingIgnore = it })
+        }
       }
 
       if (report.notes.isNotEmpty()) {
@@ -91,10 +106,52 @@ fun ReviewScreen(
       }
     }
   }
+
+  pendingIgnore?.let { key ->
+    IgnoreDialog(
+      key = key,
+      onConfirm = {
+        onIgnore(key)
+        pendingIgnore = null
+      },
+      onDismiss = { pendingIgnore = null },
+    )
+  }
 }
 
 @Composable
-private fun ReviewHeader(onBack: () -> Unit) {
+private fun IgnoreDialog(key: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+  val colors = BloggoTheme.colors
+  val noun = when (FlagCategory.entries.firstOrNull { it.name == key.substringBefore('|') }) {
+    FlagCategory.Hard, FlagCategory.VeryHard -> "this sentence"
+    FlagCategory.Passive -> "this phrase"
+    FlagCategory.Complex, FlagCategory.Adverb -> "this word"
+    else -> "this highlight"
+  }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    containerColor = colors.paperRaised,
+    titleContentColor = colors.ink,
+    textContentColor = colors.inkMuted,
+    title = { Text("Ignore $noun?", style = BloggoTheme.type.displaySmall) },
+    text = {
+      Text("It stays unmarked until you recompute the checks from the header.")
+    },
+    confirmButton = {
+      TextButton(onClick = onConfirm) {
+        Text("Ignore", style = BloggoTheme.type.button, color = colors.accent)
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss) {
+        Text("Cancel", style = BloggoTheme.type.button, color = colors.inkMuted)
+      }
+    },
+  )
+}
+
+@Composable
+private fun ReviewHeader(onBack: () -> Unit, onRecompute: () -> Unit) {
   val colors = BloggoTheme.colors
   Column {
     Row(
@@ -108,8 +165,9 @@ private fun ReviewHeader(onBack: () -> Unit) {
       BloggoIconButton(BloggoIcons.ChevronLeft, "Back to editor", onBack)
       Column(Modifier.weight(1f)) {
         Text("Review", style = BloggoTheme.type.rowTitle, color = colors.ink)
-        MetaText("tap a highlight to see why", color = colors.inkFaint)
+        MetaText("tap to see why, long press to ignore", color = colors.inkFaint)
       }
+      BloggoIconButton(BloggoIcons.Refresh, "Recompute checks", onRecompute)
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(colors.ruleSoft))
   }
@@ -202,7 +260,11 @@ private fun Legend(report: ReadabilityReport, enabled: Set<ReadabilityCheck>) {
 private data class LegendRow(val category: FlagCategory, val label: String, val count: Int)
 
 @Composable
-private fun ReviewBlock(block: RenderBlock, onToast: (String) -> Unit) {
+private fun ReviewBlock(
+  block: RenderBlock,
+  onToast: (String) -> Unit,
+  onRequestIgnore: (String) -> Unit,
+) {
   val colors = BloggoTheme.colors
   val type = BloggoTheme.type
   when (block) {
@@ -215,14 +277,14 @@ private fun ReviewBlock(block: RenderBlock, onToast: (String) -> Unit) {
 
     is RenderBlock.Prose -> when (block.kind) {
       ProseKind.Paragraph -> WashText(
-        block, type.articleBody, colors.ink, onToast,
+        block, type.articleBody, colors.ink, onToast, onRequestIgnore,
         modifier = Modifier.padding(bottom = 15.dp),
       )
 
       ProseKind.Quote -> Row(Modifier.padding(vertical = 18.dp)) {
         Box(Modifier.width(2.dp).height(48.dp).background(colors.rule))
         WashText(
-          block, type.articleBody, colors.inkMuted, onToast,
+          block, type.articleBody, colors.inkMuted, onToast, onRequestIgnore,
           modifier = Modifier.padding(start = 15.dp),
         )
       }
@@ -234,13 +296,14 @@ private fun ReviewBlock(block: RenderBlock, onToast: (String) -> Unit) {
           color = colors.accent,
           modifier = Modifier.width(24.dp),
         )
-        WashText(block, type.articleBody, colors.ink, onToast)
+        WashText(block, type.articleBody, colors.ink, onToast, onRequestIgnore)
       }
     }
   }
 }
 
 private const val ReasonTag = "why"
+private const val IgnoreTag = "ignore"
 
 @Composable
 private fun WashText(
@@ -248,6 +311,7 @@ private fun WashText(
   style: TextStyle,
   color: Color,
   onReason: (String) -> Unit,
+  onRequestIgnore: (String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val colors = BloggoTheme.colors
@@ -273,26 +337,58 @@ private fun WashText(
       block.wordFlags.forEach { flag ->
         addStyle(SpanStyle(background = washColor(flag.category, colors)), flag.start, flag.end)
       }
+      // Tap reasons and long-press ignore keys share the same ranges; the
+      // handlers each pick the tightest span under the touch point.
       block.wordFlags.forEach { flag ->
         addStringAnnotation(ReasonTag, flag.reason, flag.start, flag.end)
+        addStringAnnotation(
+          IgnoreTag,
+          readabilityIgnoreKey(flag.category, block.text.substring(flag.start, flag.end)),
+          flag.start, flag.end,
+        )
       }
       block.noteFlags.forEach { flag ->
         addStringAnnotation(ReasonTag, flag.reason, flag.start, flag.end)
+        addStringAnnotation(
+          IgnoreTag,
+          readabilityIgnoreKey(FlagCategory.Note, block.text.substring(flag.start, flag.end)),
+          flag.start, flag.end,
+        )
       }
       block.sentences.forEach { sentence ->
-        sentence.flag?.let { addStringAnnotation(ReasonTag, sentenceReason(it), sentence.start, sentence.end) }
+        val flag = sentence.flag ?: return@forEach
+        addStringAnnotation(ReasonTag, sentenceReason(flag), sentence.start, sentence.end)
+        addStringAnnotation(
+          IgnoreTag,
+          readabilityIgnoreKey(flag, block.text.substring(sentence.start, sentence.end)),
+          sentence.start, sentence.end,
+        )
       }
     }
   }
 
-  ClickableText(
+  var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+  Text(
     text = annotated,
     style = style.copy(color = color),
-    modifier = modifier,
-    onClick = { offset ->
-      annotated.getStringAnnotations(ReasonTag, offset, offset)
-        .minByOrNull { it.end - it.start }
-        ?.let { onReason(it.item) }
+    onTextLayout = { layout = it },
+    modifier = modifier.pointerInput(annotated) {
+      detectTapGestures(
+        onTap = { position ->
+          layout?.getOffsetForPosition(position)?.let { offset ->
+            annotated.getStringAnnotations(ReasonTag, offset, offset)
+              .minByOrNull { it.end - it.start }
+              ?.let { onReason(it.item) }
+          }
+        },
+        onLongPress = { position ->
+          layout?.getOffsetForPosition(position)?.let { offset ->
+            annotated.getStringAnnotations(IgnoreTag, offset, offset)
+              .minByOrNull { it.end - it.start }
+              ?.let { onRequestIgnore(it.item) }
+          }
+        },
+      )
     },
   )
 }
@@ -327,6 +423,9 @@ private fun ReviewScreenPreview() {
     ReviewScreen(
       markdown = SampleData.draftMarkdown,
       enabledChecks = ReadabilityCheck.All,
+      ignoredKeys = emptySet(),
+      onIgnore = {},
+      onRecompute = {},
       onBack = {},
       onToast = {},
     )

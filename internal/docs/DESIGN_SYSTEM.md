@@ -99,6 +99,12 @@ text highlight. Sentence, word, and note washes stack: a flagged word inside a
 hard sentence shows both, the way Hemingway's editor does. Where a note wash
 overlaps a Hemingway wash, the Hemingway category's colour reads on top.
 
+Tapping a wash shows its reason as a toast; long-pressing one opens a confirm
+dialog to ignore that finding. An ignored finding loses its wash and drops out of
+the counts, and stays gone across visits and app restarts (it is keyed by check
+category plus the flagged text, per post). The recompute action in the header
+clears every ignore for the post and re-runs the pass.
+
 ---
 
 ## 3. Typography
@@ -257,7 +263,7 @@ All in `designsystem/component/`. Each has an `@Preview`.
 | `Eyebrow` | Uppercase label plus a rule to the edge. The rule is what stops sections reading as a wall of text. |
 | `MetaText` | Monospaced metadata. |
 | `Banner` | Inline notice, info or warning, with optional action. |
-| `StatLine` | Three counters, hairline separated. |
+| `StatLine` | Three counters, hairline separated. Value and label are both centred, including a label that wraps to two lines. |
 | `BloggoTagField` | Editable tag chips (`BloggoChip` + `onRemove`) plus a "+ add" affordance that reveals an inline autocomplete panel. Takes the caller's already-computed suggestion pool — it only filters, never recomputes the pool itself — and offers a "Create '…'" row when nothing matches. The chip and "+ add" look follow `.tag` / `.tag-add` in the prototype; the autocomplete panel has no prototype counterpart, since the prototype's `.tag-add` is inert. Used by `PostDetailsSheet` for frontmatter `tags:`. |
 
 ### Controls
@@ -277,7 +283,7 @@ All in `designsystem/component/`. Each has an `@Preview`.
 | Component | Notes |
 |---|---|
 | `HeroCard` | The in-progress post. With `ArtMode.None` the art becomes a 3 dp amber top rule and the chip moves inline. Never simply hide the image: the card loses its top edge. |
-| Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words plus the `analysisNote` slate wash on spans a block-level check flagged, and an advisory Notes list below. Tapping any highlight shows the reason as a toast. Screen-local for now; not in `designsystem/`. |
+| Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words plus the `analysisNote` slate wash on spans a block-level check flagged, and an advisory Notes list below. Tapping a highlight shows the reason as a toast; long-pressing one offers to ignore it (persisted per post, cleared only by the header's recompute action). Screen-local for now; not in `designsystem/`. |
 | `PostRow` | Thumbnail, title, chip, meta, optional live-page button. |
 | `CaptureRow` | Inbox fragment, marked by an oversized opening quote. |
 | `CellGroup` / `Cell` | Grouped settings rows. |
@@ -368,7 +374,7 @@ A Hemingway-style pass over the current draft (`ReviewScreen`, `Route.Review`).
 It is reached from an accent toolbar button in the editor, not from the Edit /
 Read mode switch: it is an analysis of the prose, not another rendering of it, and
 it is read-only. Back returns to the editor; fixing a flagged sentence means
-going back to Edit.
+going back to Edit. The header carries a recompute action on the right.
 
 The screen has two fixed parts above the scrolling prose:
 
@@ -388,6 +394,18 @@ The screen has two fixed parts above the scrolling prose:
    overlong paragraph's first sentence, the draft marker itself); tapping that
    wash shows the note's text as a toast, the same as a Hemingway highlight. The
    Notes list stays as the roll-up.
+
+**Ignoring a finding.** Long-pressing any wash (Hemingway or note) opens a
+confirm dialog. Confirming drops that finding: its wash disappears and it stops
+counting toward the summary and legend. Ignores are stored per post by
+`ReadabilityIgnoreStore` (a `readability_ignore` Room table keyed by slug plus
+`readabilityIgnoreKey`, which is the check category plus the flagged text with
+whitespace collapsed), so a dismissed highlight does not come back when the
+screen or the app is reopened. Identity is the text, not a position, so an
+unrelated edit elsewhere in the draft does not resurrect an ignore; the cost is
+that an identical phrase flagged twice is hidden in both places. The header's
+recompute action clears every ignore for the post and re-runs the analysis, which
+is the only way an ignored finding reappears.
 
 The analysis is heuristic and lives in `ReadabilityAnalyzer` /
 `ReadabilityLexicon` (`app/ui/review/`), ported from the prototype script: a

@@ -103,6 +103,20 @@ enum class ReadabilityCheck {
   }
 }
 
+private val ignoreKeyWhitespace = Regex("\\s+")
+
+/**
+ * The stable identity of one flagged span for the review screen's "ignore this"
+ * action: its check [category] plus the flagged text, whitespace collapsed. Two
+ * spans with the same category and the same text share a key, so ignoring one
+ * hides both until the writer recomputes. Position is deliberately not part of
+ * the key — an unrelated edit elsewhere in the draft must not resurrect an
+ * ignored finding. The `|` split lets the screen recover the category for its
+ * confirm copy; the text half may itself contain `|`.
+ */
+fun readabilityIgnoreKey(category: FlagCategory, text: String): String =
+  category.name + "|" + text.trim().replace(ignoreKeyWhitespace, " ")
+
 /**
  * A Hemingway-style pass over the current draft. Ported from the prototype
  * script (`internal/design/bloggo-prototype.html`): sentence splitting, a
@@ -155,7 +169,11 @@ object ReadabilityAnalyzer {
     "would", "your",
   )
 
-  fun analyze(markdown: String, enabled: Set<ReadabilityCheck> = ReadabilityCheck.All): ReadabilityReport {
+  fun analyze(
+    markdown: String,
+    enabled: Set<ReadabilityCheck> = ReadabilityCheck.All,
+    ignored: Set<String> = emptySet(),
+  ): ReadabilityReport {
     val article = ArticleParser.parse(markdown)
 
     var totalWords = 0
@@ -223,7 +241,7 @@ object ReadabilityAnalyzer {
     val sortedNotes = notes.sortedBy { it.kind.ordinal }
     attachNoteWashes(sortedNotes, renderBlocks)
 
-    return ReadabilityReport(
+    val report = ReadabilityReport(
       grade = if (totalSentences > 0) maxOf(1, documentGrade.roundToInt()) else 0,
       wordCount = totalWords,
       sentenceCount = totalSentences,
@@ -231,6 +249,58 @@ object ReadabilityAnalyzer {
       counts = counts,
       blocks = renderBlocks,
       notes = sortedNotes,
+    )
+    return applyIgnores(report, ignored)
+  }
+
+  /** Strips every flag, note and note-wash whose [readabilityIgnoreKey] the
+   * writer has ignored, then rebuilds [ReadabilityReport.counts] from what
+   * survives. The prose metrics ([ReadabilityReport.grade], word and sentence
+   * counts) stay put: ignoring a finding hides its mark, it does not pretend the
+   * sentence is simpler than it reads. */
+  private fun applyIgnores(report: ReadabilityReport, ignored: Set<String>): ReadabilityReport {
+    if (ignored.isEmpty()) return report
+
+    fun proseAt(index: Int): RenderBlock.Prose? = report.blocks.getOrNull(index) as? RenderBlock.Prose
+    fun isIgnored(category: FlagCategory, text: String): Boolean =
+      readabilityIgnoreKey(category, text) in ignored
+
+    val notes = report.notes.filterNot { note ->
+      note.spans.any { span ->
+        val block = proseAt(span.blockIndex) ?: return@any false
+        isIgnored(FlagCategory.Note, block.text.substring(span.start, span.end))
+      }
+    }
+
+    val blocks = report.blocks.mapTo(mutableListOf<RenderBlock>()) { block ->
+      if (block !is RenderBlock.Prose) return@mapTo block
+      val sentences = block.sentences.map { sentence ->
+        val flag = sentence.flag
+        if (flag != null && isIgnored(flag, block.text.substring(sentence.start, sentence.end))) {
+          sentence.copy(flag = null)
+        } else {
+          sentence
+        }
+      }
+      val wordFlags = block.wordFlags.filterNot {
+        isIgnored(it.category, block.text.substring(it.start, it.end))
+      }
+      block.copy(sentences = sentences, wordFlags = wordFlags, noteFlags = emptyList())
+    }
+    attachNoteWashes(notes, blocks)
+
+    val counts = FlagCategory.entries.associateWithTo(mutableMapOf()) { 0 }
+    for (block in blocks) {
+      if (block !is RenderBlock.Prose) continue
+      block.sentences.forEach { it.flag?.let { flag -> counts.merge(flag, 1, Int::plus) } }
+      block.wordFlags.forEach { counts.merge(it.category, 1, Int::plus) }
+    }
+
+    return report.copy(
+      counts = counts,
+      blocks = blocks,
+      notes = notes,
+      adverbCount = counts.getValue(FlagCategory.Adverb),
     )
   }
 

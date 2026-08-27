@@ -7,8 +7,11 @@ import org.junit.Test
 
 class ReadabilityAnalyzerTest {
 
-  private fun analyze(markdown: String, enabled: Set<ReadabilityCheck> = ReadabilityCheck.All) =
-    ReadabilityAnalyzer.analyze(markdown, enabled)
+  private fun analyze(
+    markdown: String,
+    enabled: Set<ReadabilityCheck> = ReadabilityCheck.All,
+    ignored: Set<String> = emptySet(),
+  ) = ReadabilityAnalyzer.analyze(markdown, enabled, ignored)
 
   private fun ReadabilityReport.wordFlags(): List<WordFlag> =
     blocks.filterIsInstance<RenderBlock.Prose>().flatMap { it.wordFlags }
@@ -168,6 +171,85 @@ class ReadabilityAnalyzerTest {
       assertTrue(it.start in 0..prose.text.length)
       assertTrue(it.end in it.start..prose.text.length)
     }
+  }
+
+  @Test
+  fun `readabilityIgnoreKey trims and collapses whitespace`() {
+    assertEquals(
+      readabilityIgnoreKey(FlagCategory.Complex, "  the   majority\nof "),
+      readabilityIgnoreKey(FlagCategory.Complex, "the majority of"),
+    )
+    assertFalse(
+      readabilityIgnoreKey(FlagCategory.Complex, "utilize") ==
+        readabilityIgnoreKey(FlagCategory.Adverb, "utilize"),
+    )
+  }
+
+  @Test
+  fun `ignoring a word flag drops it and decrements its count`() {
+    val markdown = "We should utilize the platform."
+    val before = analyze(markdown).wordFlags().first { it.category == FlagCategory.Complex }
+    val key = readabilityIgnoreKey(FlagCategory.Complex, "utilize")
+
+    val after = analyze(markdown, ignored = setOf(key))
+
+    assertTrue(after.wordFlags().none { it.category == FlagCategory.Complex })
+    assertEquals(0, after.counts.getValue(FlagCategory.Complex))
+    assertEquals("utilize", markdown.substring(before.start, before.end))
+  }
+
+  @Test
+  fun `ignoring a hard sentence clears its wash but not the grade`() {
+    val markdown =
+      "The comprehensive documentation describes numerous configuration parameters " +
+        "that fundamentally determine how the distributed system coordinates replication " +
+        "across geographically separated availability zones."
+    val base = analyze(markdown)
+    val prose = base.blocks.filterIsInstance<RenderBlock.Prose>().first()
+    val hard = prose.sentences.first { it.flag == FlagCategory.Hard || it.flag == FlagCategory.VeryHard }
+    val key = readabilityIgnoreKey(hard.flag!!, prose.text.substring(hard.start, hard.end))
+
+    val after = analyze(markdown, ignored = setOf(key))
+    val afterProse = after.blocks.filterIsInstance<RenderBlock.Prose>().first()
+
+    assertTrue(afterProse.sentences.none { it.flag != null })
+    assertEquals(0, after.counts.getValue(FlagCategory.Hard))
+    assertEquals(0, after.counts.getValue(FlagCategory.VeryHard))
+    assertEquals(base.grade, after.grade)
+  }
+
+  @Test
+  fun `ignoring a noted span drops the note and its wash`() {
+    val markdown = "The architecture is clean. The architecture also scales well."
+    val base = analyze(markdown)
+    val span = base.notes.first { it.kind == NoteKind.RepeatedWord }.spans.first()
+    val spanText = (base.blocks[span.blockIndex] as RenderBlock.Prose).text
+      .substring(span.start, span.end)
+    val key = readabilityIgnoreKey(FlagCategory.Note, spanText)
+
+    val after = analyze(markdown, ignored = setOf(key))
+
+    assertTrue(after.notes.none { it.kind == NoteKind.RepeatedWord })
+    assertTrue(
+      after.blocks.filterIsInstance<RenderBlock.Prose>().all { it.noteFlags.isEmpty() },
+    )
+  }
+
+  @Test
+  fun `an empty ignore set changes nothing`() {
+    val markdown = "The report was written overnight. We should utilize the platform."
+    val a = analyze(markdown)
+    val b = analyze(markdown, ignored = emptySet())
+    assertEquals(a.counts, b.counts)
+    assertEquals(a.wordFlags().size, b.wordFlags().size)
+    assertEquals(a.notes.size, b.notes.size)
+  }
+
+  @Test
+  fun `an unknown ignore key leaves every flag in place`() {
+    val markdown = "We should utilize the platform."
+    val after = analyze(markdown, ignored = setOf("Complex|something else entirely"))
+    assertEquals(1, after.wordFlags().count { it.category == FlagCategory.Complex })
   }
 
   @Test

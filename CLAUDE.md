@@ -56,6 +56,7 @@ Single-Activity Compose app. There is no Navigation Compose and there are no Vie
   - `library/PostLibraryRepository`, `library/PageLibraryRepository` — list/fetch posts and pages, backed by a Room cache (`PostCache`, `PageCache`).
   - `library/LocalPostStore` — drafts that exist only on the device.
   - `inbox/FragmentStore` — captured thoughts ("fragments").
+  - `review/ReadabilityIgnoreStore` — per-post readability findings the writer has ignored on the review screen.
   - `media/MediaRepository`, `media/MediaStaging` — repo images and pending uploads.
   - `publish/PostPublishRepository` — the GitHub Contents API PUT with retry on stale SHA.
   - `RepoConnectionRepository`, `SettingsRepository`, `RepoPaths`, `SampleData`.
@@ -65,7 +66,7 @@ Room is used only as a local cache for the library listing, not as a source of t
 
 ## Persistence
 
-- Room (`BloggoDatabase.get(context)`) — post/page frontmatter cache, local drafts, fragments.
+- Room (`BloggoDatabase.get(context)`) — post/page frontmatter cache, local drafts, fragments, ignored readability findings.
 - DataStore Preferences — theme mode and other small typed settings, via `SettingsRepository`.
 - `EncryptedSharedPreferences` (Android Keystore) — the GitHub PAT only, via `RepoConnectionRepository`.
 
