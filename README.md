@@ -52,6 +52,11 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
   editor's Insert row
 - Preview actually renders images (repo-hosted or still-staged) and
   `http(s)`-sourced video, not placeholder boxes
+- Readability review: a Hemingway-style pass over the draft, reached from the
+  editor toolbar. Reading grade, hard sentences, passive voice, adverbs, weak
+  qualifiers and wordy phrases as coloured washes over the prose, plus an
+  advisory Notes list (repeated words, same-opener sentences, long paragraphs,
+  leftover draft markers). Every check has an on/off toggle in Settings.
 - Capture inbox for fragments that are not posts yet, persisted durably
   (Room) so a captured-but-unpromoted thought survives a process death.
   Capture is a FAB-triggered overlay (fixed-height text area, keyboard-

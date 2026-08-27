@@ -27,6 +27,14 @@
   --add-tint:rgba(61,107,78,.10);
   --amber:#8A6A24;
   --amber-tint:rgba(138,106,36,.12);
+
+  /* writing-analysis washes, scoped to the Review screen only */
+  --an-hard:rgba(179,142,44,.20);      --an-hard-ink:#8A6A24;
+  --an-veryhard:rgba(150,74,58,.24);   --an-veryhard-ink:#8E3B3B;
+  --an-complex:rgba(122,92,150,.22);   --an-complex-ink:#6A4E86;
+  --an-adverb:rgba(45,92,140,.17);     --an-adverb-ink:#2F5B87;
+  --an-passive:rgba(61,107,78,.20);    --an-passive-ink:#3D6B4E;
+
   --shell:#2A2721;
   --shell-2:#3A362E;
   --stage:#DAD3C6;
@@ -63,6 +71,13 @@
     --add-tint:rgba(132,174,142,.14);
     --amber:#C9A44E;
     --amber-tint:rgba(201,164,78,.14);
+
+    --an-hard:rgba(201,164,78,.24);      --an-hard-ink:#C9A44E;
+    --an-veryhard:rgba(201,127,118,.26); --an-veryhard-ink:#C97F76;
+    --an-complex:rgba(178,158,214,.24);  --an-complex-ink:#B29ED6;
+    --an-adverb:rgba(141,178,216,.22);   --an-adverb-ink:#8DB2D8;
+    --an-passive:rgba(132,174,142,.24);  --an-passive-ink:#84AE8E;
+
     --shell:#080705;
     --shell-2:#1A1814;
     --stage:#0D0C0A;
@@ -91,6 +106,13 @@
   --add-tint:rgba(132,174,142,.14);
   --amber:#C9A44E;
   --amber-tint:rgba(201,164,78,.14);
+
+  --an-hard:rgba(201,164,78,.24);      --an-hard-ink:#C9A44E;
+  --an-veryhard:rgba(201,127,118,.26); --an-veryhard-ink:#C97F76;
+  --an-complex:rgba(178,158,214,.24);  --an-complex-ink:#B29ED6;
+  --an-adverb:rgba(141,178,216,.22);   --an-adverb-ink:#8DB2D8;
+  --an-passive:rgba(132,174,142,.24);  --an-passive-ink:#84AE8E;
+
   --shell:#080705;
   --shell-2:#1A1814;
   --stage:#0D0C0A;
@@ -594,6 +616,65 @@ input,textarea{font:inherit;color:inherit}
   font-family:var(--f-ui);font-size:12px;color:var(--ink-3);
   margin-top:8px;line-height:1.45;
 }
+
+/* ============================================================
+   REVIEW  (readability pass over the draft)
+   Hemingway-style: sentence grade plus word flags as coloured
+   washes over reading-mode typography. Read-only.
+   ============================================================ */
+.rv-summary{flex:none;padding:14px 18px 0;background:var(--paper)}
+.rv-summary .statline{background:var(--paper-2)}
+.rv-counts{
+  font-family:var(--f-mono);font-size:11px;color:var(--ink-3);
+  text-align:center;margin-top:9px;letter-spacing:.01em;
+  font-variant-numeric:tabular-nums;
+}
+.rv-legend{
+  flex:none;display:flex;flex-wrap:wrap;gap:8px 14px;
+  padding:13px 18px 14px;background:var(--paper);
+  border-bottom:1px solid var(--rule-soft);
+}
+.rv-leg{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-2)}
+.rv-leg i{width:12px;height:12px;border-radius:4px;flex:none}
+.rv-leg b{
+  font-family:var(--f-mono);font-weight:500;font-size:11px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;
+}
+.rv-leg.hard i{background:var(--an-hard-ink)}
+.rv-leg.veryhard i{background:var(--an-veryhard-ink)}
+.rv-leg.complex i{background:var(--an-complex-ink)}
+.rv-leg.adverb i{background:var(--an-adverb-ink)}
+.rv-leg.passive i{background:var(--an-passive-ink)}
+
+.rv-prose{
+  font-family:var(--f-read);font-size:17.5px;line-height:1.74;color:var(--ink);
+  padding:16px 20px 48px;max-width:36em;
+}
+.rv-prose h2{
+  font-family:var(--f-display);font-weight:400;font-size:24px;line-height:1.18;
+  letter-spacing:-.01em;margin:24px 0 10px;text-wrap:balance;
+}
+.rv-prose h2:first-child{margin-top:2px}
+.rv-prose h3{font-family:var(--f-read);font-weight:600;font-size:17px;margin:20px 0 8px}
+.rv-prose p{margin-bottom:15px}
+.rv-prose blockquote{
+  border-left:2px solid var(--rule);padding-left:15px;margin:18px 0;color:var(--ink-2);
+}
+.rv-prose ol,.rv-prose ul{margin:0 0 15px;padding-left:24px}
+.rv-prose li{margin-bottom:7px}
+.rv-prose .empty{font-family:var(--f-mono);font-size:12.5px;color:var(--ink-3)}
+
+.hl-s,.hl-w{
+  border-radius:4px;cursor:pointer;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+.hl-w{padding:1px 2px;font-weight:500}
+.hl-s{padding:2px 1px}
+.hl-hard{background:var(--an-hard)}
+.hl-veryhard{background:var(--an-veryhard)}
+.hl-complex{background:var(--an-complex)}
+.hl-adverb{background:var(--an-adverb)}
+.hl-passive{background:var(--an-passive)}
 
 /* ============================================================
    DIFF
@@ -1160,6 +1241,9 @@ input,textarea{font:inherit;color:inherit}
               <button class="tbtn accent" data-go="focus" title="Focus mode">
                 <svg class="ic" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><circle cx="12" cy="12" r="2.2"/></svg>
               </button>
+              <button class="tbtn accent" data-go="review" title="Readability review">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16 16 10"/><circle cx="12" cy="16" r="1.1" fill="currentColor" stroke="none"/><path d="M4 20h16"/></svg>
+              </button>
               <button class="tbtn accent" data-sheet="commit" title="Commit or open a PR">
                 <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v5.8M12 15.2V21"/></svg>
               </button>
@@ -1197,6 +1281,40 @@ input,textarea{font:inherit;color:inherit}
 
             <div class="paper" style="padding:0">
               <article class="read" id="readOut"></article>
+            </div>
+          </section>
+
+          <!-- ---------- REVIEW (readability) ---------- -->
+          <section class="view" data-view="review">
+            <header class="edbar">
+              <button class="iconbtn" data-go="editor" aria-label="Back to editor">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+              </button>
+              <div class="title">
+                <div class="t">Review</div>
+                <div class="s"><span class="meta">tap a highlight to see why</span></div>
+              </div>
+            </header>
+
+            <div class="rv-summary">
+              <div class="statline">
+                <div><div class="n" id="rvGrade">7</div><div class="l">Grade level</div></div>
+                <div><div class="n" id="rvHard">2</div><div class="l">Hard sentences</div></div>
+                <div><div class="n" id="rvPassive">1</div><div class="l">Passive voice</div></div>
+              </div>
+              <div class="rv-counts" id="rvCounts">188 words · 17 sentences · 10 adverbs</div>
+            </div>
+
+            <div class="rv-legend">
+              <span class="rv-leg hard"><i></i>Hard to read <b id="rvLegHard">1</b></span>
+              <span class="rv-leg veryhard"><i></i>Very hard <b id="rvLegVeryhard">1</b></span>
+              <span class="rv-leg complex"><i></i>Complex word <b id="rvLegComplex">4</b></span>
+              <span class="rv-leg adverb"><i></i>Adverb / weak word <b id="rvLegAdverb">10</b></span>
+              <span class="rv-leg passive"><i></i>Passive voice <b id="rvLegPassive">1</b></span>
+            </div>
+
+            <div class="paper" style="padding:0">
+              <article class="rv-prose" id="reviewProse"></article>
             </div>
           </section>
 
@@ -1969,6 +2087,14 @@ merged, and running in front of a person. That happens off camera.
 
 I have been keeping notes on this for six months.
 
+The approach was validated by the team over several weeks. Honestly, the
+results were somewhat surprising, and we very quickly realized that our
+initial assumptions about tooling were basically wrong. In order to
+utilize the agent effectively you must first demonstrate to it exactly
+which files are yours, because a system that modifies code it does not
+understand will eventually produce a change that nobody asked for and
+that is extremely hard to review.
+
 > A generated diff is a hypothesis. Shipping is the experiment.
 
 Three things separate the agents I keep from the ones I delete:
@@ -1985,6 +2111,7 @@ const SCREENS = [
   ["library","Post library"],
   ["editor","Editor + toolbar"],
   ["preview","Preview + live link"],
+  ["review","Readability review"],
   ["meta","Frontmatter sheet",1],
   ["insert","Shortcode inserter",1],
   ["commit","Commit / PR + diff",1],
@@ -2391,6 +2518,249 @@ function countWords(src){
 }
 
 /* ============================================================
+   READABILITY REVIEW
+   A Hemingway-style pass over the draft. Sentences are split and
+   scored for reading grade; words and phrases are matched against
+   adverb / weak-word / complex-word / passive-voice rules. Both
+   land as coloured washes over reading-mode typography. The wash
+   palette (--an-*) is scoped to this screen and does not carry
+   the app's usual state meanings.
+   ============================================================ */
+
+/* -ly words that are not adverbs */
+const LY_STOP = new Set(("only family reply apply supply early fly ally rely holy ugly jelly belly silly hilly folly rally tally sally anomaly assembly monopoly multiply imply comply july likely lonely lovely friendly lively costly deadly daily weekly monthly yearly timely orderly elderly homely kindly measly wobbly bubbly gnarly curly burly surly pearly gully bully wholly").split(" "));
+
+/* weak qualifiers, grouped with adverbs under the blue wash */
+const WEAK_WORDS = new Set(("very really quite rather somewhat just actually basically simply fairly pretty totally definitely certainly probably essentially virtually extremely highly literally honestly obviously truly slightly relatively particularly especially arguably somehow kind sort").split(" "));
+
+/* single complex words -> plainer choice ("" means: just cut it) */
+const COMPLEX = {
+  utilize:"use", utilise:"use", utilizes:"uses", utilized:"used", utilizing:"using",
+  commence:"start", commenced:"started", endeavour:"try", endeavor:"try",
+  numerous:"many", sufficient:"enough", additional:"extra", facilitate:"help",
+  leverage:"use", demonstrate:"show", demonstrates:"shows", demonstrated:"showed",
+  approximately:"about", modify:"change", component:"part", components:"parts",
+  individual:"person", initial:"first", attempt:"try", regarding:"about",
+  assist:"help", obtain:"get", require:"need", requires:"needs", purchase:"buy",
+  therefore:"so", furthermore:"also", moreover:"also", nevertheless:"still",
+  consequently:"so", subsequently:"later", ascertain:"find out", terminate:"end",
+  initiate:"begin", indicate:"show", indicates:"shows", aforementioned:"",
+  notwithstanding:"despite", accordingly:"so", henceforth:"from now on"
+};
+
+/* wordy phrases -> plainer choice */
+const COMPLEX_PHRASES = [
+  ["in order to","to"], ["a number of","some"], ["the fact that","that"],
+  ["in the event that","if"], ["with regard to","about"], ["with respect to","about"],
+  ["due to the fact that","because"], ["in spite of the fact that","although"],
+  ["is able to","can"], ["are able to","can"], ["was able to","could"],
+  ["were able to","could"], ["a majority of","most"], ["at this point in time","now"],
+  ["referred to as","called"], ["for the purpose of","for"], ["in the near future","soon"],
+  ["in the process of",""]
+];
+
+/* irregular past participles for the passive test */
+const PARTICIPLES = new Set(("done gone seen made given taken known shown written said held kept told felt found built sent brought thought caught bought put set cut become begun chosen driven drawn eaten fallen forgotten hidden lost met paid read sold spent stood understood won broken spoken stolen torn worn heard left meant").split(" "));
+
+function anSyllables(w){
+  w = w.toLowerCase().replace(/[^a-z]/g, "");
+  if(w.length <= 3) return w ? 1 : 0;
+  w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, "").replace(/^y/, "");
+  const g = w.match(/[aeiouy]{1,2}/g);
+  return g ? g.length : 1;
+}
+function anWords(s){ const m = s.match(/[A-Za-z0-9'’]+/g); return m ? m.length : 0; }
+function anSplit(text){
+  const out = [];
+  const re = /[^.!?]*[.!?]+["'’)\]]*\s*|[^.!?]+$/g;
+  let m;
+  while((m = re.exec(text))){
+    if(m[0].trim()) out.push(m[0]);
+    if(re.lastIndex === m.index) re.lastIndex++;
+  }
+  return out.length ? out : (text.trim() ? [text] : []);
+}
+function anGrade(words, syl, sentences){
+  if(!words || !sentences) return 0;
+  return 0.39 * (words / sentences) + 11.8 * (syl / words) - 15.59;
+}
+
+/* markdown -> plain text, so highlight offsets stay simple */
+function anStrip(t){
+  return t
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1$2")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+}
+
+/* word / phrase flags inside one sentence -> HTML, counting as it goes */
+function anFlag(sentence, tally){
+  const lower = sentence.toLowerCase();
+  const ranges = [];
+
+  COMPLEX_PHRASES.forEach(([ph, alt]) => {
+    let idx = 0;
+    while((idx = lower.indexOf(ph, idx)) !== -1){
+      const b = idx === 0 || /\W/.test(lower[idx - 1]);
+      const a = idx + ph.length >= lower.length || /\W/.test(lower[idx + ph.length]);
+      if(b && a) ranges.push({ s:idx, e:idx + ph.length, cat:"complex",
+        why: alt ? `Wordy. Try “${alt}”.` : "Wordy phrase. Cut it." });
+      idx += ph.length;
+    }
+  });
+
+  const beRe = /\b(?:am|is|are|was|were|be|been|being|get|got|gets)\b(?:\s+\w+ly)?\s+([A-Za-z]+)/gi;
+  let pm;
+  while((pm = beRe.exec(sentence))){
+    const tail = pm[1].toLowerCase();
+    const looksEd = /[a-z]{2}ed$/.test(tail) && !WEAK_WORDS.has(tail);
+    if(looksEd || PARTICIPLES.has(tail))
+      ranges.push({ s:pm.index, e:pm.index + pm[0].length, cat:"passive",
+        why:"Passive voice. Name who does it." });
+  }
+
+  const wre = /[A-Za-z’']+/g;
+  let wm;
+  while((wm = wre.exec(sentence))){
+    const w = wm[0].toLowerCase().replace(/[’']/g, "");
+    const s = wm.index, e = wm.index + wm[0].length;
+    if(ranges.some(r => s < r.e && e > r.s)) continue;
+    if(Object.prototype.hasOwnProperty.call(COMPLEX, w))
+      ranges.push({ s, e, cat:"complex",
+        why: COMPLEX[w] ? `Complex word. Try “${COMPLEX[w]}”.` : "Complex word. Simplify it." });
+    else if(WEAK_WORDS.has(w))
+      ranges.push({ s, e, cat:"adverb", why:"Weak qualifier. Cut it or commit." });
+    else if(/ly$/.test(w) && w.length > 4 && !LY_STOP.has(w))
+      ranges.push({ s, e, cat:"adverb", why:"Adverb. A stronger verb often does more." });
+  }
+
+  ranges.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
+  const kept = [];
+  ranges.forEach(r => { if(!kept.some(k => r.s < k.e && r.e > k.s)) kept.push(r); });
+  kept.sort((a, b) => a.s - b.s);
+
+  let html = "", pos = 0;
+  kept.forEach(r => {
+    tally[r.cat]++;
+    html += esc(sentence.slice(pos, r.s));
+    html += `<span class="hl-w hl-${r.cat}" data-why="${esc(r.why)}">${esc(sentence.slice(r.s, r.e))}</span>`;
+    pos = r.e;
+  });
+  html += esc(sentence.slice(pos));
+  return html;
+}
+
+/* one prose block (paragraph / quote / list item) -> HTML */
+function anBlock(text, tally){
+  let html = "";
+  anSplit(text).forEach(raw => {
+    const lead = raw.match(/^\s*/)[0];
+    const trail = raw.match(/\s*$/)[0];
+    const core = raw.slice(lead.length, raw.length - trail.length);
+    if(!core){ html += esc(raw); return; }
+
+    const wc = anWords(core);
+    let syl = 0;
+    (core.match(/[A-Za-z'’]+/g) || []).forEach(w => syl += anSyllables(w));
+    tally.words += wc;
+    tally.syl += syl;
+    tally.sentences++;
+
+    const g = anGrade(wc, syl, 1);
+    let scat = null;
+    if(wc >= 22 && g >= 13){ scat = "veryhard"; tally.veryhard++; }
+    else if(wc >= 11 && g >= 9){ scat = "hard"; tally.hard++; }
+
+    const inner = anFlag(core, tally);
+    html += lead;
+    html += scat
+      ? `<span class="hl-s hl-${scat}" data-why="${scat === "veryhard"
+          ? "Very hard to read. Split this sentence."
+          : "Hard to read. Shorten or split it."}">${inner}</span>`
+      : inner;
+    html += trail;
+  });
+  return html;
+}
+
+function reviewReport(src){
+  const tally = { words:0, syl:0, sentences:0, hard:0, veryhard:0, complex:0, adverb:0, passive:0 };
+  const lines = src.split("\n");
+  let i = 0;
+  if(lines[0] && lines[0].trim() === "---"){
+    i = 1;
+    while(i < lines.length && lines[i].trim() !== "---") i++;
+    i++;
+  }
+  let html = "", para = [], list = null, fence = false;
+  const flushP = () => {
+    if(!para.length) return;
+    const text = anStrip(para.join(" ")).replace(/\s+/g, " ").trim();
+    if(text) html += `<p>${anBlock(text, tally)}</p>`;
+    para = [];
+  };
+  const flushL = () => { if(list){ html += `</${list}>`; list = null; } };
+
+  for(; i < lines.length; i++){
+    const line = lines[i];
+    let m;
+    if(/^```/.test(line)){ flushP(); flushL(); fence = !fence; continue; }
+    if(fence) continue;
+    if(line.trim() === ""){ flushP(); flushL(); continue; }
+    if(/^\{\{[<%]/.test(line.trim())){ flushP(); flushL(); continue; }
+    if(/^---+$/.test(line.trim())){ flushP(); flushL(); continue; }
+    if((m = line.match(/^(#{1,6})\s(.*)$/))){
+      flushP(); flushL();
+      const h = m[1].length > 2 ? 3 : 2;
+      html += `<h${h}>${esc(anStrip(m[2]))}</h${h}>`;
+      continue;
+    }
+    if((m = line.match(/^>\s?(.*)$/))){
+      flushP(); flushL();
+      const text = anStrip(m[1]).trim();
+      if(text) html += `<blockquote>${anBlock(text, tally)}</blockquote>`;
+      continue;
+    }
+    if((m = line.match(/^\d+\.\s(.*)$/))){
+      flushP();
+      if(list !== "ol"){ flushL(); html += "<ol>"; list = "ol"; }
+      html += `<li>${anBlock(anStrip(m[1]).trim(), tally)}</li>`;
+      continue;
+    }
+    if((m = line.match(/^[-*+]\s(.*)$/))){
+      flushP();
+      if(list !== "ul"){ flushL(); html += "<ul>"; list = "ul"; }
+      html += `<li>${anBlock(anStrip(m[1]).trim(), tally)}</li>`;
+      continue;
+    }
+    flushL();
+    para.push(line);
+  }
+  flushP(); flushL();
+
+  if(!html) html = `<p class="empty">Nothing to analyze yet. Write a few sentences and come back.</p>`;
+  const grade = Math.max(1, Math.round(anGrade(tally.words, tally.syl, tally.sentences)));
+  return { html, tally, grade: tally.sentences ? grade : 0 };
+}
+
+function paintReview(){
+  const { html, tally, grade } = reviewReport(doc);
+  $("#rvGrade").textContent = grade || "-";
+  $("#rvHard").textContent = tally.hard + tally.veryhard;
+  $("#rvPassive").textContent = tally.passive;
+  $("#rvCounts").textContent =
+    `${tally.words.toLocaleString()} words · ${tally.sentences} sentence${tally.sentences !== 1 ? "s" : ""} · ` +
+    `${tally.adverb} adverb${tally.adverb !== 1 ? "s" : ""}`;
+  $("#rvLegHard").textContent = tally.hard;
+  $("#rvLegVeryhard").textContent = tally.veryhard;
+  $("#rvLegComplex").textContent = tally.complex;
+  $("#rvLegAdverb").textContent = tally.adverb;
+  $("#rvLegPassive").textContent = tally.passive;
+  $("#reviewProse").innerHTML = html;
+}
+
+/* ============================================================
    EDITOR WIRING
    ============================================================ */
 const editor = $("#editor");
@@ -2692,6 +3062,11 @@ function go(name){
     $("#readOut").innerHTML = render(doc, livePost);
     setPreviewState();
   }
+  if(name === "review"){
+    paintReview();
+    const p = $('.view[data-view="review"] .paper');
+    if(p) p.scrollTop = 0;
+  }
   if(name === "focus"){
     paintFocus(false);
     placeCaret(tw, readText(tw).length);
@@ -2736,6 +3111,12 @@ document.addEventListener("click", e => {
 
 $("#linkOpen").addEventListener("click", () => {
   toast(livePost ? "Opening " + livePost.url : "Publish it first, then this opens the page");
+});
+
+/* Review: tap a highlight for the reason */
+$("#reviewProse").addEventListener("click", e => {
+  const h = e.target.closest("[data-why]");
+  if(h) toast(h.dataset.why);
 });
 
 /* sheets */

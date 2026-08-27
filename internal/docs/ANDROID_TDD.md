@@ -120,8 +120,9 @@ The four tab destinations clear the stack. Everything else pushes.
 ### 4.3 State that outlives a screen
 
 Every post the app knows about (the draft, the one in review, the published
-ones) lives in one list in the shell, keyed by slug. `Route.Editor(slug)` and
-`Route.Focus(slug)` look their post up by slug and write edits back to that
+ones) lives in one list in the shell, keyed by slug. `Route.Editor(slug)`,
+`Route.Focus(slug)` and `Route.Review(slug)` (the read-only readability pass)
+look their post up by slug and write edits back to that
 slug only — never to a single ambient "the draft" variable, which is what let
 every route show the same content regardless of what was tapped (fixed in
 Milestone 5, PROGRESS.md). Switching to preview and back does not lose the

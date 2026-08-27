@@ -55,6 +55,24 @@ data class BloggoColors(
   val amber: Color,
   val amberTint: Color,
 
+  /**
+   * Writing-analysis washes, scoped to the Readability review screen only. The
+   * one documented exception to "colour carries state": five simultaneous
+   * highlight categories that describe prose quality, always shown with a
+   * printed legend. The `*Ink` value is the solid legend swatch; the paired
+   * wash (17 to 26% alpha) is the text highlight. `--an-*` in the prototype.
+   */
+  val analysisHard: Color,
+  val analysisHardInk: Color,
+  val analysisVeryHard: Color,
+  val analysisVeryHardInk: Color,
+  val analysisComplex: Color,
+  val analysisComplexInk: Color,
+  val analysisAdverb: Color,
+  val analysisAdverbInk: Color,
+  val analysisPassive: Color,
+  val analysisPassiveInk: Color,
+
   /** True when this is the dark palette, for blend mode decisions. */
   val isDark: Boolean,
 ) {
@@ -79,6 +97,16 @@ data class BloggoColors(
       addTint = Color(0x1A3D6B4E),
       amber = Color(0xFF8A6A24),
       amberTint = Color(0x1F8A6A24),
+      analysisHard = Color(0x33B38E2C),
+      analysisHardInk = Color(0xFF8A6A24),
+      analysisVeryHard = Color(0x3D964A3A),
+      analysisVeryHardInk = Color(0xFF8E3B3B),
+      analysisComplex = Color(0x387A5C96),
+      analysisComplexInk = Color(0xFF6A4E86),
+      analysisAdverb = Color(0x2B2D5C8C),
+      analysisAdverbInk = Color(0xFF2F5B87),
+      analysisPassive = Color(0x333D6B4E),
+      analysisPassiveInk = Color(0xFF3D6B4E),
       isDark = false,
     )
 
@@ -102,6 +130,16 @@ data class BloggoColors(
       addTint = Color(0x2484AE8E),
       amber = Color(0xFFC9A44E),
       amberTint = Color(0x24C9A44E),
+      analysisHard = Color(0x3DC9A44E),
+      analysisHardInk = Color(0xFFC9A44E),
+      analysisVeryHard = Color(0x42C97F76),
+      analysisVeryHardInk = Color(0xFFC97F76),
+      analysisComplex = Color(0x3DB29ED6),
+      analysisComplexInk = Color(0xFFB29ED6),
+      analysisAdverb = Color(0x388DB2D8),
+      analysisAdverbInk = Color(0xFF8DB2D8),
+      analysisPassive = Color(0x3D84AE8E),
+      analysisPassiveInk = Color(0xFF84AE8E),
       isDark = true,
     )
 

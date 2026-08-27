@@ -98,6 +98,7 @@ class EditorScreenRapidInputTest {
           onBack = {},
           onPreview = {},
           onFocus = {},
+          onReview = {},
           onToast = {},
           onCoverGenerated = {},
           onDeletePost = {},

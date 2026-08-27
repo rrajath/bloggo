@@ -72,6 +72,28 @@ backgrounds: 10 to 12% in light, 14% in dark.
 | Ghost | transparent + `rule` border | Neutral actions such as Change, Edit |
 | Capture | `accentTintStrong` / `accentBright` | Editor header chip for an Inbox fragment preview — a bolder, distinct blue from Pull request's `accentTint`/`accent`, so an open capture and an open PR never read as the same state |
 
+### Writing-analysis washes
+
+One exception to "colour carries state". The Readability review screen (section
+11) needs five simultaneous highlight categories, more than the state palette
+covers, and they describe prose quality rather than repo or post state. They live
+in their own group, are only ever used on that one screen, and always appear with
+a printed legend so the mapping is never assumed. In code they are the
+`analysis*` / `analysis*Ink` fields on `BloggoColors` (`--an-*` in the
+prototype).
+
+| Token | Light | Dark | Category |
+|---|---|---|---|
+| `analysisHard` / `analysisHardInk` | amber wash / `#8A6A24` | `#C9A44E` | Hard-to-read sentence |
+| `analysisVeryHard` / `analysisVeryHardInk` | rust wash / `#8E3B3B` | `#C97F76` | Very-hard-to-read sentence |
+| `analysisComplex` / `analysisComplexInk` | violet wash / `#6A4E86` | `#B29ED6` | Complex word or wordy phrase |
+| `analysisAdverb` / `analysisAdverbInk` | blue wash / `#2F5B87` | `#8DB2D8` | Adverb or weak qualifier |
+| `analysisPassive` / `analysisPassiveInk` | green wash / `#3D6B4E` | `#84AE8E` | Passive voice |
+
+The `*-ink` value is the solid legend swatch; the wash (17 to 26% alpha) is the
+text highlight. Sentence and word washes stack: a flagged word inside a hard
+sentence shows both, the way Hemingway's editor does.
+
 ---
 
 ## 3. Typography
@@ -250,6 +272,7 @@ All in `designsystem/component/`. Each has an `@Preview`.
 | Component | Notes |
 |---|---|
 | `HeroCard` | The in-progress post. With `ArtMode.None` the art becomes a 3 dp amber top rule and the chip moves inline. Never simply hide the image: the card loses its top edge. |
+| Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words, and an advisory Notes list below. Tapping a highlight shows the reason as a toast. Screen-local for now; not in `designsystem/`. |
 | `PostRow` | Thumbnail, title, chip, meta, optional live-page button. |
 | `CaptureRow` | Inbox fragment, marked by an oversized opening quote. |
 | `CellGroup` / `Cell` | Grouped settings rows. |
@@ -331,3 +354,39 @@ photographs rather than generated decoration.
 If you find yourself needing a colour or a size this document does not have, that
 is a design decision, not an implementation detail. Raise it rather than picking
 a hex value.
+
+---
+
+## 11. Readability review
+
+A Hemingway-style pass over the current draft (`ReviewScreen`, `Route.Review`).
+It is reached from an accent toolbar button in the editor, not from the Edit /
+Read mode switch: it is an analysis of the prose, not another rendering of it, and
+it is read-only. Back returns to the editor; fixing a flagged sentence means
+going back to Edit.
+
+The screen has two fixed parts above the scrolling prose:
+
+1. **Summary.** A `StatLine` showing reading grade level, hard-sentence count
+   (hard plus very hard), and passive-voice count, over a mono line with the word,
+   sentence, and adverb totals.
+2. **Legend.** One row per enabled category with a live count. A category the
+   writer has turned off in Settings drops its wash and its legend row.
+3. **Prose.** The draft in `articleBody` reading typography (headings kept,
+   code blocks, shortcodes, and frontmatter dropped), with `analysis*` washes,
+   followed by an advisory **Notes** list for the block-level checks (repeated
+   words, same-opener sentences, long paragraphs, leftover draft markers).
+
+The analysis is heuristic and lives in `ReadabilityAnalyzer` /
+`ReadabilityLexicon` (`app/ui/review/`), ported from the prototype script: a
+vowel-group syllable count, a Flesch-Kincaid grade per sentence and for the
+document, an `-ly` adverb test with a stop list, a weak-qualifier list, a
+complex-word and wordy-phrase dictionary with plainer suggestions, and a
+`be`/`get` + past-participle passive test. Sentence splitting is a hand-rolled
+walk with an abbreviation guard rather than the prototype's terminal-punctuation
+regex. The word lists and the thresholds are the parts to review, not the
+rendering.
+
+Every check has an on/off toggle under **Settings > Readability review**, stored
+by `SettingsRepository` as `readability_checks` (a comma-joined list of
+`ReadabilityCheck` names; absent means all on).

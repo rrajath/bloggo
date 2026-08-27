@@ -56,6 +56,7 @@ class EditorScreenTest {
           onBack = {},
           onPreview = {},
           onFocus = {},
+          onReview = {},
           onToast = {},
           onCoverGenerated = {},
           onDeletePost = {},

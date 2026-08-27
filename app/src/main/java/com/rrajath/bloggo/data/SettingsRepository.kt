@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.rrajath.bloggo.designsystem.component.ArtMode
+import com.rrajath.bloggo.ui.review.ReadabilityCheck
 import kotlinx.coroutines.flow.map
 
 /** Overrides the system theme. [System] tracks the device setting. */
@@ -32,9 +33,15 @@ class SettingsRepository(context: Context) {
   private val dataStore = context.settingsDataStore
   private val themeModeKey = stringPreferencesKey("theme_mode")
   private val artModeKey = stringPreferencesKey("art_mode")
+  // A comma-joined list of enabled check names, the same shape as
+  // RepoConnection.frontmatterFields. An absent key means every check is on;
+  // an empty string means the writer turned all of them off.
+  private val readabilityChecksKey = stringPreferencesKey("readability_checks")
 
   val themeMode = dataStore.data.map { prefs -> ThemeMode.fromStored(prefs[themeModeKey]) }
   val artMode = dataStore.data.map { prefs -> artModeFromStored(prefs[artModeKey]) }
+  val readabilityChecks =
+    dataStore.data.map { prefs -> ReadabilityCheck.fromStored(prefs[readabilityChecksKey]) }
 
   suspend fun setThemeMode(mode: ThemeMode) {
     dataStore.edit { prefs -> prefs[themeModeKey] = mode.name }
@@ -42,5 +49,9 @@ class SettingsRepository(context: Context) {
 
   suspend fun setArtMode(mode: ArtMode) {
     dataStore.edit { prefs -> prefs[artModeKey] = mode.name }
+  }
+
+  suspend fun setReadabilityChecks(checks: Set<ReadabilityCheck>) {
+    dataStore.edit { prefs -> prefs[readabilityChecksKey] = checks.joinToString(",") { it.name } }
   }
 }

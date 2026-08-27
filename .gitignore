@@ -20,6 +20,7 @@ local.properties
 
 # Tooling
 /.serena
+/.claude/settings.local.json
 
 # Working notes (not committed)
 PROGRESS.md

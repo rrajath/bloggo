@@ -94,6 +94,8 @@ import com.rrajath.bloggo.ui.media.MediaScreen
 import com.rrajath.bloggo.ui.pages.PagesScreen
 import com.rrajath.bloggo.ui.preview.PreviewScreen
 import com.rrajath.bloggo.ui.repo.RepoScreen
+import com.rrajath.bloggo.ui.review.ReadabilityCheck
+import com.rrajath.bloggo.ui.review.ReviewScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -115,6 +117,10 @@ sealed interface Route {
   data class Editor(val slug: String) : Route
   data class Preview(val slug: String, val published: Boolean) : Route
   data class Focus(val slug: String) : Route
+
+  /** Read-only Hemingway-style pass over a draft, reached from the editor
+   * toolbar. Back returns to the editor. */
+  data class Review(val slug: String) : Route
 
   /** No longer reachable from anywhere in the app — Preview's Share button
    * opens the native share sheet instead (see `onShare` below). Left in
@@ -290,6 +296,8 @@ fun BloggoApp(launchIntent: Intent? = null) {
   val scope = rememberCoroutineScope()
   val themeMode by settingsRepository.themeMode.collectAsState(initial = ThemeMode.System)
   val artMode by settingsRepository.artMode.collectAsState(initial = ArtMode.Generated)
+  val readabilityChecks by settingsRepository.readabilityChecks
+    .collectAsState(initial = ReadabilityCheck.All)
   val repoConnection by repoConnectionRepository.connection.collectAsState(initial = RepoConnection())
   val systemDarkTheme = isSystemInDarkTheme()
   val darkTheme = when (themeMode) {
@@ -563,6 +571,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
             is Route.Editor -> top.slug == previewingSlug
             is Route.Preview -> top.slug == previewingSlug
             is Route.Focus -> top.slug == previewingSlug
+            is Route.Review -> top.slug == previewingSlug
             else -> false
           }
           if (!stillViewingPreview) {
@@ -941,6 +950,10 @@ fun BloggoApp(launchIntent: Intent? = null) {
               onArtModeChange = { mode -> scope.launch { settingsRepository.setArtMode(mode) } },
               themeMode = themeMode,
               onThemeModeChange = { mode -> scope.launch { settingsRepository.setThemeMode(mode) } },
+              readabilityChecks = readabilityChecks,
+              onReadabilityChecksChange = { checks ->
+                scope.launch { settingsRepository.setReadabilityChecks(checks) }
+              },
               onVisitSite = { openUrl("https://$siteHost") },
             )
 
@@ -996,6 +1009,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
                   go(Route.Preview(route.slug, published = alreadyLive), replace = true)
                 },
                 onFocus = { go(Route.Focus(route.slug)) },
+                onReview = { go(Route.Review(route.slug)) },
                 onToast = { toast = it },
                 onCoverGenerated = { path ->
                   updatePost(route.slug) { it.copy(cover = path) }
@@ -1208,6 +1222,13 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 }
               },
               onExit = ::back,
+            )
+
+            is Route.Review -> ReviewScreen(
+              markdown = postBySlug(route.slug).markdown,
+              enabledChecks = readabilityChecks,
+              onBack = ::back,
+              onToast = { toast = it },
             )
 
             Route.Mastodon -> MastodonScreen(

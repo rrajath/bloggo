@@ -94,6 +94,16 @@ object BloggoIcons {
     ),
   )
 
+  val Readability: BloggoIcon = BloggoIcon(
+    name = "Readability",
+    paths = listOf(
+      "M4 16a8 8 0 0 1 16 0",
+      "M12 16 16 10",
+      "M 10.9 16 a 1.1 1.1 0 1 0 2.2 0 a 1.1 1.1 0 1 0 -2.2 0",
+      "M4 20h16",
+    ),
+  )
+
   val Commit: BloggoIcon = BloggoIcon(
     name = "Commit",
     paths = listOf(

@@ -178,6 +178,7 @@ fun EditorScreen(
   onBack: () -> Unit,
   onPreview: () -> Unit,
   onFocus: () -> Unit,
+  onReview: () -> Unit,
   onToast: (String) -> Unit,
   onCoverGenerated: (String) -> Unit,
   onDeletePost: () -> Unit,
@@ -355,6 +356,7 @@ fun EditorScreen(
       wordCount = wordCount,
       onFormat = { action -> edit { action.applyTo(it) } },
       onFocus = onFocus,
+      onReview = onReview,
       onCommit = {
         if (isFragmentPreview) {
           onToast("Promote to Post first")
@@ -442,6 +444,7 @@ private fun EditorToolbar(
   wordCount: Int,
   onFormat: (MarkdownAction) -> Unit,
   onFocus: () -> Unit,
+  onReview: () -> Unit,
   onCommit: () -> Unit,
   onInsert: () -> Unit,
 ) {
@@ -483,6 +486,7 @@ private fun EditorToolbar(
       if (false) {
         ToolbarIcon(BloggoIcons.FocusMode, "Focus mode", onFocus, accent = true)
       }
+      ToolbarIcon(BloggoIcons.Readability, "Readability review", onReview, accent = true)
       ToolbarIcon(BloggoIcons.Commit, "Commit or open a pull request", onCommit, accent = true)
 
       Text(
@@ -529,6 +533,7 @@ private fun EditorPreview() {
       onBack = {},
       onPreview = {},
       onFocus = {},
+      onReview = {},
       onToast = {},
       onCoverGenerated = {},
       onDeletePost = {},

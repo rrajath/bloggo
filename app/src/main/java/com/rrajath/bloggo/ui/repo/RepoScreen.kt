@@ -41,6 +41,7 @@ import com.rrajath.bloggo.designsystem.component.BloggoButton
 import com.rrajath.bloggo.designsystem.component.BloggoChip
 import com.rrajath.bloggo.designsystem.component.BloggoIconButton
 import com.rrajath.bloggo.designsystem.component.ButtonTone
+import com.rrajath.bloggo.designsystem.component.BloggoSwitch
 import com.rrajath.bloggo.designsystem.component.Cell
 import com.rrajath.bloggo.designsystem.component.CellGroup
 import com.rrajath.bloggo.designsystem.component.ChipTone
@@ -49,6 +50,7 @@ import com.rrajath.bloggo.designsystem.component.SegmentedControl
 import com.rrajath.bloggo.designsystem.component.StatLine
 import com.rrajath.bloggo.designsystem.icon.BloggoIcon
 import com.rrajath.bloggo.designsystem.icon.BloggoIcons
+import com.rrajath.bloggo.ui.review.ReadabilityCheck
 
 /**
  * What the app thinks your blog is, and how to correct it — plus the
@@ -81,6 +83,8 @@ fun RepoScreen(
   onArtModeChange: (ArtMode) -> Unit,
   themeMode: ThemeMode,
   onThemeModeChange: (ThemeMode) -> Unit,
+  readabilityChecks: Set<ReadabilityCheck>,
+  onReadabilityChecksChange: (Set<ReadabilityCheck>) -> Unit,
   onVisitSite: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -228,6 +232,28 @@ fun RepoScreen(
           icon = BloggoIcons.Typeface,
           showDivider = false,
         )
+      }
+
+      Eyebrow("Readability review")
+      CellGroup {
+        readabilityCheckRows.forEachIndexed { index, (check, title, subtitle) ->
+          Cell(
+            title = title,
+            subtitle = subtitle,
+            showDivider = index != readabilityCheckRows.lastIndex,
+            trailing = {
+              BloggoSwitch(
+                checked = check in readabilityChecks,
+                onCheckedChange = { on ->
+                  onReadabilityChecksChange(
+                    if (on) readabilityChecks + check else readabilityChecks - check
+                  )
+                },
+                contentDescription = title,
+              )
+            },
+          )
+        }
       }
 
       Column(Modifier.padding(bottom = 38.dp)) {}
@@ -506,6 +532,20 @@ private fun ToggleEditableCell(
   }
 }
 
+/** The order the readability toggles appear in Settings. Titles match the
+ * review screen's legend and Notes wording. */
+private val readabilityCheckRows: List<Triple<ReadabilityCheck, String, String>> = listOf(
+  Triple(ReadabilityCheck.HardSentences, "Hard-to-read sentences", "Long, dense sentences by reading grade"),
+  Triple(ReadabilityCheck.PassiveVoice, "Passive voice", "\"was written\" rather than \"wrote\""),
+  Triple(ReadabilityCheck.Adverbs, "Adverbs", "\"-ly\" words a stronger verb could replace"),
+  Triple(ReadabilityCheck.WeakQualifiers, "Weak qualifiers", "\"very\", \"really\", \"quite\""),
+  Triple(ReadabilityCheck.ComplexWords, "Complex and wordy phrases", "\"utilize\", \"in order to\""),
+  Triple(ReadabilityCheck.RepeatedWords, "Repeated words", "The same word twice in close range"),
+  Triple(ReadabilityCheck.SameOpenerSentences, "Same-opener sentences", "Several sentences starting the same way"),
+  Triple(ReadabilityCheck.LongParagraphs, "Long paragraphs", "Paragraphs over about 150 words"),
+  Triple(ReadabilityCheck.DraftMarkers, "Leftover draft markers", "TODO, FIXME, TK, or [bracketed] notes"),
+)
+
 @Preview(heightDp = 1200)
 @Composable
 private fun RepoPreview() {
@@ -533,6 +573,8 @@ private fun RepoPreview() {
       onArtModeChange = {},
       themeMode = ThemeMode.System,
       onThemeModeChange = {},
+      readabilityChecks = ReadabilityCheck.All,
+      onReadabilityChecksChange = {},
       onVisitSite = {},
     )
   }
