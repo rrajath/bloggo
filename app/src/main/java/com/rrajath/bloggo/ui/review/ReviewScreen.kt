@@ -163,6 +163,9 @@ private fun Legend(report: ReadabilityReport, enabled: Set<ReadabilityCheck>) {
     if (ReadabilityCheck.PassiveVoice in enabled) {
       add(LegendRow(FlagCategory.Passive, "Passive voice", report.counts.getValue(FlagCategory.Passive)))
     }
+    if (report.notes.isNotEmpty()) {
+      add(LegendRow(FlagCategory.Note, "Other checks", report.notes.size))
+    }
   }
   if (rows.isEmpty()) return
 
@@ -248,7 +251,9 @@ private fun WashText(
   modifier: Modifier = Modifier,
 ) {
   val colors = BloggoTheme.colors
-  val hasHighlights = block.wordFlags.isNotEmpty() || block.sentences.any { it.flag != null }
+  val hasHighlights = block.wordFlags.isNotEmpty() ||
+    block.noteFlags.isNotEmpty() ||
+    block.sentences.any { it.flag != null }
   if (!hasHighlights) {
     Text(block.text, style = style, color = color, modifier = modifier)
     return
@@ -257,6 +262,11 @@ private fun WashText(
   val annotated = remember(block, colors) {
     buildAnnotatedString {
       append(block.text)
+      // Note washes sit under the Hemingway washes: where they overlap a flagged
+      // sentence or word, that category's colour still reads on top.
+      block.noteFlags.forEach { flag ->
+        addStyle(SpanStyle(background = washColor(FlagCategory.Note, colors)), flag.start, flag.end)
+      }
       block.sentences.forEach { sentence ->
         sentence.flag?.let { addStyle(SpanStyle(background = washColor(it, colors)), sentence.start, sentence.end) }
       }
@@ -264,6 +274,9 @@ private fun WashText(
         addStyle(SpanStyle(background = washColor(flag.category, colors)), flag.start, flag.end)
       }
       block.wordFlags.forEach { flag ->
+        addStringAnnotation(ReasonTag, flag.reason, flag.start, flag.end)
+      }
+      block.noteFlags.forEach { flag ->
         addStringAnnotation(ReasonTag, flag.reason, flag.start, flag.end)
       }
       block.sentences.forEach { sentence ->
@@ -295,6 +308,7 @@ private fun washColor(category: FlagCategory, colors: BloggoColors): Color = whe
   FlagCategory.Complex -> colors.analysisComplex
   FlagCategory.Adverb -> colors.analysisAdverb
   FlagCategory.Passive -> colors.analysisPassive
+  FlagCategory.Note -> colors.analysisNote
 }
 
 private fun swatchColor(category: FlagCategory, colors: BloggoColors): Color = when (category) {
@@ -303,6 +317,7 @@ private fun swatchColor(category: FlagCategory, colors: BloggoColors): Color = w
   FlagCategory.Complex -> colors.analysisComplexInk
   FlagCategory.Adverb -> colors.analysisAdverbInk
   FlagCategory.Passive -> colors.analysisPassiveInk
+  FlagCategory.Note -> colors.analysisNoteInk
 }
 
 @Preview(heightDp = 900)

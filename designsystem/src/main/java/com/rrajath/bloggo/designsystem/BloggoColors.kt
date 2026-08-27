@@ -58,9 +58,12 @@ data class BloggoColors(
   /**
    * Writing-analysis washes, scoped to the Readability review screen only. The
    * one documented exception to "colour carries state": five simultaneous
-   * highlight categories that describe prose quality, always shown with a
-   * printed legend. The `*Ink` value is the solid legend swatch; the paired
-   * wash (17 to 26% alpha) is the text highlight. `--an-*` in the prototype.
+   * highlight categories that describe prose quality, plus a sixth neutral
+   * slate wash ([analysisNote]) that anchors the advisory block-level checks
+   * (repeated words, same openers, an overlong paragraph, leftover draft
+   * markers). Always shown with a printed legend. The `*Ink` value is the solid
+   * legend swatch; the paired wash (17 to 26% alpha) is the text highlight.
+   * `--an-*` in the prototype; the note wash is a Bloggo addition.
    */
   val analysisHard: Color,
   val analysisHardInk: Color,
@@ -72,6 +75,8 @@ data class BloggoColors(
   val analysisAdverbInk: Color,
   val analysisPassive: Color,
   val analysisPassiveInk: Color,
+  val analysisNote: Color,
+  val analysisNoteInk: Color,
 
   /** True when this is the dark palette, for blend mode decisions. */
   val isDark: Boolean,
@@ -107,6 +112,8 @@ data class BloggoColors(
       analysisAdverbInk = Color(0xFF2F5B87),
       analysisPassive = Color(0x333D6B4E),
       analysisPassiveInk = Color(0xFF3D6B4E),
+      analysisNote = Color(0x3363676E),
+      analysisNoteInk = Color(0xFF63676E),
       isDark = false,
     )
 
@@ -140,6 +147,8 @@ data class BloggoColors(
       analysisAdverbInk = Color(0xFF8DB2D8),
       analysisPassive = Color(0x3D84AE8E),
       analysisPassiveInk = Color(0xFF84AE8E),
+      analysisNote = Color(0x3D9AA0A8),
+      analysisNoteInk = Color(0xFF9AA0A8),
       isDark = true,
     )
 

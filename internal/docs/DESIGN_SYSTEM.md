@@ -76,11 +76,14 @@ backgrounds: 10 to 12% in light, 14% in dark.
 
 One exception to "colour carries state". The Readability review screen (section
 11) needs five simultaneous highlight categories, more than the state palette
-covers, and they describe prose quality rather than repo or post state. They live
-in their own group, are only ever used on that one screen, and always appear with
-a printed legend so the mapping is never assumed. In code they are the
-`analysis*` / `analysis*Ink` fields on `BloggoColors` (`--an-*` in the
-prototype).
+covers, and they describe prose quality rather than repo or post state. A sixth,
+`analysisNote`, is a neutral slate wash for the advisory block-level checks
+(repeated words, same openers, an overlong paragraph, leftover draft markers):
+it is deliberately not a chromatic hue, so it never reads as one of the five
+Hemingway categories. They live in their own group, are only ever used on that
+one screen, and always appear with a printed legend so the mapping is never
+assumed. In code they are the `analysis*` / `analysis*Ink` fields on
+`BloggoColors` (`--an-*` in the prototype; the note wash is a Bloggo addition).
 
 | Token | Light | Dark | Category |
 |---|---|---|---|
@@ -89,10 +92,12 @@ prototype).
 | `analysisComplex` / `analysisComplexInk` | violet wash / `#6A4E86` | `#B29ED6` | Complex word or wordy phrase |
 | `analysisAdverb` / `analysisAdverbInk` | blue wash / `#2F5B87` | `#8DB2D8` | Adverb or weak qualifier |
 | `analysisPassive` / `analysisPassiveInk` | green wash / `#3D6B4E` | `#84AE8E` | Passive voice |
+| `analysisNote` / `analysisNoteInk` | slate wash / `#63676E` | `#9AA0A8` | Anything a block-level check flagged ("Other checks" in the legend) |
 
 The `*-ink` value is the solid legend swatch; the wash (17 to 26% alpha) is the
-text highlight. Sentence and word washes stack: a flagged word inside a hard
-sentence shows both, the way Hemingway's editor does.
+text highlight. Sentence, word, and note washes stack: a flagged word inside a
+hard sentence shows both, the way Hemingway's editor does. Where a note wash
+overlaps a Hemingway wash, the Hemingway category's colour reads on top.
 
 ---
 
@@ -272,7 +277,7 @@ All in `designsystem/component/`. Each has an `@Preview`.
 | Component | Notes |
 |---|---|
 | `HeroCard` | The in-progress post. With `ArtMode.None` the art becomes a 3 dp amber top rule and the chip moves inline. Never simply hide the image: the card loses its top edge. |
-| Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words, and an advisory Notes list below. Tapping a highlight shows the reason as a toast. Screen-local for now; not in `designsystem/`. |
+| Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words plus the `analysisNote` slate wash on spans a block-level check flagged, and an advisory Notes list below. Tapping any highlight shows the reason as a toast. Screen-local for now; not in `designsystem/`. |
 | `PostRow` | Thumbnail, title, chip, meta, optional live-page button. |
 | `CaptureRow` | Inbox fragment, marked by an oversized opening quote. |
 | `CellGroup` / `Cell` | Grouped settings rows. |
@@ -371,11 +376,18 @@ The screen has two fixed parts above the scrolling prose:
    (hard plus very hard), and passive-voice count, over a mono line with the word,
    sentence, and adverb totals.
 2. **Legend.** One row per enabled category with a live count. A category the
-   writer has turned off in Settings drops its wash and its legend row.
+   writer has turned off in Settings drops its wash and its legend row. When any
+   block-level check has findings, a final "Other checks" row appears with the
+   `analysisNote` slate swatch and the note count.
 3. **Prose.** The draft in `articleBody` reading typography (headings kept,
    code blocks, shortcodes, and frontmatter dropped), with `analysis*` washes,
    followed by an advisory **Notes** list for the block-level checks (repeated
-   words, same-opener sentences, long paragraphs, leftover draft markers).
+   words, same-opener sentences, long paragraphs, leftover draft markers). Each
+   note also paints an `analysisNote` wash on the spans that triggered it (the
+   close occurrences of a repeated word, each sentence in a same-opener run, an
+   overlong paragraph's first sentence, the draft marker itself); tapping that
+   wash shows the note's text as a toast, the same as a Hemingway highlight. The
+   Notes list stays as the roll-up.
 
 The analysis is heuristic and lives in `ReadabilityAnalyzer` /
 `ReadabilityLexicon` (`app/ui/review/`), ported from the prototype script: a

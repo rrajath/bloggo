@@ -56,7 +56,8 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
   editor toolbar. Reading grade, hard sentences, passive voice, adverbs, weak
   qualifiers and wordy phrases as coloured washes over the prose, plus an
   advisory Notes list (repeated words, same-opener sentences, long paragraphs,
-  leftover draft markers). Every check has an on/off toggle in Settings.
+  leftover draft markers) whose findings also get a slate wash on the exact
+  spans that triggered them. Every check has an on/off toggle in Settings.
 - Capture inbox for fragments that are not posts yet, persisted durably
   (Room) so a captured-but-unpromoted thought survives a process death.
   Capture is a FAB-triggered overlay (fixed-height text area, keyboard-

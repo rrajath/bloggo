@@ -5,12 +5,14 @@ import com.rrajath.bloggo.ui.preview.ArticleParser
 import kotlin.math.roundToInt
 
 /**
- * The prototype's five highlight categories. Sentence-level ([Hard], [VeryHard])
- * and word-level ([Complex], [Adverb], [Passive]) washes stack over the same
- * text, the way Hemingway's editor does. Kept Compose-free — the screen maps
- * each to a `--an-*` colour.
+ * The prototype's five highlight categories plus [Note]. Sentence-level ([Hard],
+ * [VeryHard]) and word-level ([Complex], [Adverb], [Passive]) washes stack over
+ * the same text, the way Hemingway's editor does. [Note] is the neutral slate
+ * wash the screen paints on the spans that triggered a block-level check (see
+ * [ReadabilityNote]); it also stacks. Kept Compose-free — the screen maps each
+ * to a `--an-*` colour.
  */
-enum class FlagCategory { Hard, VeryHard, Complex, Adverb, Passive }
+enum class FlagCategory { Hard, VeryHard, Complex, Adverb, Passive, Note }
 
 /** A flagged word or phrase, as a character range into a block's plain text. */
 data class WordFlag(val start: Int, val end: Int, val category: FlagCategory, val reason: String)
@@ -32,13 +34,27 @@ sealed interface RenderBlock {
     val text: String,
     val sentences: List<SentenceRange>,
     val wordFlags: List<WordFlag>,
+    /** Spans that a block-level check flagged, painted with the [FlagCategory.Note]
+     * wash and carrying the note's message as their tap reason. */
+    val noteFlags: List<WordFlag> = emptyList(),
   ) : RenderBlock
 }
 
-/** The four extra checks, surfaced as an advisory list rather than a wash. */
+/** The four extra checks. Surfaced both as an advisory list and, since each
+ * [ReadabilityNote] now carries the [NoteSpan]s that triggered it, as a neutral
+ * slate wash on those spans in the prose. */
 enum class NoteKind { RepeatedWord, SameOpener, LongParagraph, DraftMarker }
 
-data class ReadabilityNote(val kind: NoteKind, val message: String)
+/** Where in the rendered prose a note's finding sits. [blockIndex] indexes into
+ * [ReadabilityReport.blocks]; [start]/[end] are character offsets into that
+ * block's `text`. */
+data class NoteSpan(val blockIndex: Int, val start: Int, val end: Int)
+
+data class ReadabilityNote(
+  val kind: NoteKind,
+  val message: String,
+  val spans: List<NoteSpan> = emptyList(),
+)
 
 /** Everything the review screen needs for one draft. */
 data class ReadabilityReport(
@@ -148,8 +164,8 @@ object ReadabilityAnalyzer {
     val counts = FlagCategory.entries.associateWithTo(mutableMapOf()) { 0 }
 
     val renderBlocks = mutableListOf<RenderBlock>()
-    val documentWords = mutableListOf<String>()
-    val sentenceOpeners = mutableListOf<String>()
+    val documentWords = mutableListOf<WordOccurrence>()
+    val sentenceOpeners = mutableListOf<OpenerOccurrence>()
     val notes = mutableListOf<ReadabilityNote>()
 
     for (block in article.blocks) {
@@ -165,11 +181,12 @@ object ReadabilityAnalyzer {
             else -> Triple((block as ArticleBlock.Paragraph).text, ProseKind.Paragraph, null)
           }
 
-          val prose = analyzeProse(text, enabled, counts)
+          val blockIndex = renderBlocks.size
+          val prose = analyzeProse(text, enabled, counts, blockIndex)
           totalWords += prose.words
           totalSyllables += prose.syllables
           totalSentences += prose.sentences.size
-          documentWords += prose.wordsLower
+          documentWords += prose.occurrences
           // List items naturally start alike ("They ship...", "They fail...");
           // opener monotony is only interesting in running prose.
           if (kind != ProseKind.ListItem) sentenceOpeners += prose.openers
@@ -178,12 +195,18 @@ object ReadabilityAnalyzer {
             ReadabilityCheck.LongParagraphs in enabled &&
             prose.words > LONG_PARAGRAPH_WORDS
           ) {
+            // Wash the first sentence as the anchor; a wash over 150+ words
+            // would be a wall of colour.
+            val anchor = prose.sentences.firstOrNull()
+              ?.let { listOf(NoteSpan(blockIndex, it.start, it.end)) }
+              .orEmpty()
             notes += ReadabilityNote(
               NoteKind.LongParagraph,
               "One paragraph runs to ${prose.words} words. A break would help the reader.",
+              anchor,
             )
           }
-          if (ReadabilityCheck.DraftMarkers in enabled) notes += draftMarkerNotes(text)
+          if (ReadabilityCheck.DraftMarkers in enabled) notes += draftMarkerNotes(text, blockIndex)
 
           renderBlocks += RenderBlock.Prose(kind, marker, text, prose.sentences, prose.wordFlags)
         }
@@ -197,6 +220,8 @@ object ReadabilityAnalyzer {
     if (ReadabilityCheck.SameOpenerSentences in enabled) notes += openerMonotonyNotes(sentenceOpeners)
 
     val documentGrade = grade(totalWords, totalSyllables, totalSentences)
+    val sortedNotes = notes.sortedBy { it.kind.ordinal }
+    attachNoteWashes(sortedNotes, renderBlocks)
 
     return ReadabilityReport(
       grade = if (totalSentences > 0) maxOf(1, documentGrade.roundToInt()) else 0,
@@ -205,42 +230,74 @@ object ReadabilityAnalyzer {
       adverbCount = counts.getValue(FlagCategory.Adverb),
       counts = counts,
       blocks = renderBlocks,
-      notes = notes.sortedBy { it.kind.ordinal },
+      notes = sortedNotes,
     )
   }
+
+  /** Fold every note's [NoteSpan]s back onto their prose block as
+   * [FlagCategory.Note] flags, so the screen can paint and label them. */
+  private fun attachNoteWashes(notes: List<ReadabilityNote>, blocks: MutableList<RenderBlock>) {
+    val byBlock = HashMap<Int, MutableList<WordFlag>>()
+    for (note in notes) {
+      for (span in note.spans) {
+        byBlock.getOrPut(span.blockIndex) { mutableListOf() } +=
+          WordFlag(span.start, span.end, FlagCategory.Note, note.message)
+      }
+    }
+    for ((index, flags) in byBlock) {
+      val block = blocks.getOrNull(index)
+      if (block is RenderBlock.Prose) {
+        blocks[index] = block.copy(noteFlags = flags.sortedBy { it.start })
+      }
+    }
+  }
+
+  /** One word in the document, lowercased, with where it sits in the prose. */
+  private data class WordOccurrence(val lower: String, val blockIndex: Int, val start: Int, val end: Int)
+
+  /** The first word of one sentence, lowercased, with where it sits. */
+  private data class OpenerOccurrence(val lower: String, val blockIndex: Int, val start: Int, val end: Int)
 
   private class ProseAnalysis(
     val words: Int,
     val syllables: Int,
     val sentences: List<SentenceRange>,
     val wordFlags: List<WordFlag>,
-    val wordsLower: List<String>,
-    val openers: List<String>,
+    val occurrences: List<WordOccurrence>,
+    val openers: List<OpenerOccurrence>,
   )
 
   private fun analyzeProse(
     text: String,
     enabled: Set<ReadabilityCheck>,
     counts: MutableMap<FlagCategory, Int>,
+    blockIndex: Int,
   ): ProseAnalysis {
     var words = 0
     var syllables = 0
     val sentenceRanges = mutableListOf<SentenceRange>()
     val wordFlags = mutableListOf<WordFlag>()
-    val wordsLower = mutableListOf<String>()
-    val openers = mutableListOf<String>()
+    val occurrences = mutableListOf<WordOccurrence>()
+    val openers = mutableListOf<OpenerOccurrence>()
 
     for ((start, end) in splitSentences(text)) {
       val core = text.substring(start, end)
-      val coreWords = wordRegex.findAll(core).map { it.value }.toList()
-      if (coreWords.isEmpty()) continue
+      val coreMatches = wordRegex.findAll(core).toList()
+      if (coreMatches.isEmpty()) continue
+      val coreWords = coreMatches.map { it.value }
 
       val wordCount = coreWords.size
       val syllableCount = coreWords.sumOf(::countSyllables)
       words += wordCount
       syllables += syllableCount
-      coreWords.mapTo(wordsLower) { it.lowercase() }
-      openers += coreWords.first().lowercase()
+      coreMatches.mapTo(occurrences) {
+        WordOccurrence(it.value.lowercase(), blockIndex, it.range.first + start, it.range.last + 1 + start)
+      }
+      coreMatches.first().let {
+        openers += OpenerOccurrence(
+          it.value.lowercase(), blockIndex, it.range.first + start, it.range.last + 1 + start,
+        )
+      }
 
       val sentenceGrade = grade(wordCount, syllableCount, 1)
       var flag: FlagCategory? = null
@@ -260,7 +317,7 @@ object ReadabilityAnalyzer {
       }
     }
 
-    return ProseAnalysis(words, syllables, sentenceRanges, wordFlags, wordsLower, openers)
+    return ProseAnalysis(words, syllables, sentenceRanges, wordFlags, occurrences, openers)
   }
 
   private val abbreviations = setOf(
@@ -433,55 +490,71 @@ object ReadabilityAnalyzer {
 
   private fun isWordChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_'
 
-  private fun draftMarkerNotes(text: String): List<ReadabilityNote> {
+  private fun draftMarkerNotes(text: String, blockIndex: Int): List<ReadabilityNote> {
     val out = mutableListOf<ReadabilityNote>()
     for (match in draftMarkerRegex.findAll(text)) {
-      out += ReadabilityNote(NoteKind.DraftMarker, "A draft marker is still in the text: “${match.value}”.")
+      out += ReadabilityNote(
+        NoteKind.DraftMarker,
+        "A draft marker is still in the text: “${match.value}”.",
+        listOf(NoteSpan(blockIndex, match.range.first, match.range.last + 1)),
+      )
     }
     for (match in bracketPlaceholderRegex.findAll(text)) {
       out += ReadabilityNote(
         NoteKind.DraftMarker,
         "A bracketed placeholder is still in the text: “${match.value}”.",
+        listOf(NoteSpan(blockIndex, match.range.first, match.range.last + 1)),
       )
     }
     return out
   }
 
-  private fun repeatedWordNotes(words: List<String>): List<ReadabilityNote> {
+  private fun repeatedWordNotes(words: List<WordOccurrence>): List<ReadabilityNote> {
     val lastSeenAt = HashMap<String, Int>()
-    val flagged = LinkedHashSet<String>()
-    words.forEachIndexed { position, word ->
-      if (word.length >= MIN_REPEAT_LENGTH && word !in repeatStopWords) {
-        val previous = lastSeenAt[word]
-        if (previous != null && position - previous <= REPEAT_WINDOW) flagged += word
-        lastSeenAt[word] = position
+    val spansByWord = LinkedHashMap<String, LinkedHashSet<NoteSpan>>()
+    words.forEachIndexed { position, occ ->
+      if (occ.lower.length >= MIN_REPEAT_LENGTH && occ.lower !in repeatStopWords) {
+        val previous = lastSeenAt[occ.lower]
+        if (previous != null && position - previous <= REPEAT_WINDOW) {
+          val spans = spansByWord.getOrPut(occ.lower) { LinkedHashSet() }
+          val prior = words[previous]
+          spans += NoteSpan(prior.blockIndex, prior.start, prior.end)
+          spans += NoteSpan(occ.blockIndex, occ.start, occ.end)
+        }
+        lastSeenAt[occ.lower] = position
       }
     }
-    return flagged.map {
-      ReadabilityNote(NoteKind.RepeatedWord, "“$it” repeats close to itself. Vary it or cut one.")
+    return spansByWord.map { (word, spans) ->
+      ReadabilityNote(
+        NoteKind.RepeatedWord,
+        "“$word” repeats close to itself. Vary it or cut one.",
+        spans.toList(),
+      )
     }
   }
 
-  private fun openerMonotonyNotes(openers: List<String>): List<ReadabilityNote> {
+  private fun openerMonotonyNotes(openers: List<OpenerOccurrence>): List<ReadabilityNote> {
     val out = mutableListOf<ReadabilityNote>()
     var runStart = 0
     while (runStart < openers.size) {
       var runEnd = runStart
-      while (runEnd + 1 < openers.size && openers[runEnd + 1] == openers[runStart]) runEnd++
+      while (runEnd + 1 < openers.size && openers[runEnd + 1].lower == openers[runStart].lower) runEnd++
       val length = runEnd - runStart + 1
       if (length >= OPENER_RUN) {
         out += ReadabilityNote(
           NoteKind.SameOpener,
-          "$length sentences in a row open with “${openers[runStart]}”.",
+          "$length sentences in a row open with “${openers[runStart].lower}”.",
+          (runStart..runEnd).map { NoteSpan(openers[it].blockIndex, openers[it].start, openers[it].end) },
         )
       }
       runStart = runEnd + 1
     }
-    val thereOpeners = openers.count { it == "there" }
-    if (thereOpeners >= THERE_OPENER_LIMIT) {
+    val thereOpeners = openers.filter { it.lower == "there" }
+    if (thereOpeners.size >= THERE_OPENER_LIMIT) {
       out += ReadabilityNote(
         NoteKind.SameOpener,
-        "$thereOpeners sentences open with “there”. A direct subject reads stronger.",
+        "${thereOpeners.size} sentences open with “there”. A direct subject reads stronger.",
+        thereOpeners.map { NoteSpan(it.blockIndex, it.start, it.end) },
       )
     }
     return out
