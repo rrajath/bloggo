@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -37,6 +39,7 @@ import com.rrajath.bloggo.data.PublishAction
 import com.rrajath.bloggo.data.RepoConnection
 import com.rrajath.bloggo.data.RepoConnectionRepository
 import com.rrajath.bloggo.data.SampleData
+import com.rrajath.bloggo.data.SettingsBackup
 import com.rrajath.bloggo.data.github.CommitResult
 import com.rrajath.bloggo.data.github.ConnectionCheck
 import com.rrajath.bloggo.data.github.GitHubApiError
@@ -94,11 +97,21 @@ import com.rrajath.bloggo.ui.mastodon.MastodonScreen
 import com.rrajath.bloggo.ui.media.MediaScreen
 import com.rrajath.bloggo.ui.pages.PagesScreen
 import com.rrajath.bloggo.ui.preview.PreviewScreen
-import com.rrajath.bloggo.ui.repo.RepoScreen
 import com.rrajath.bloggo.ui.review.ReadabilityCheck
+import com.rrajath.bloggo.ui.settings.SettingsAppearanceScreen
+import com.rrajath.bloggo.ui.settings.SettingsConnectionScreen
+import com.rrajath.bloggo.ui.settings.SettingsImportExportScreen
+import com.rrajath.bloggo.ui.settings.SettingsPage
+import com.rrajath.bloggo.ui.settings.SettingsPublishingScreen
+import com.rrajath.bloggo.ui.settings.SettingsReadabilityScreen
+import com.rrajath.bloggo.ui.settings.SettingsRepoScreen
+import com.rrajath.bloggo.ui.settings.SettingsScreen
 import com.rrajath.bloggo.ui.review.ReviewScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 
 /** Every destination in the app. Tab destinations keep the bottom bar visible. */
 sealed interface Route {
@@ -114,7 +127,13 @@ sealed interface Route {
    * required param nothing else in the type needs to change for. */
   data class Media(val returnToEditorSlug: String? = null) : Route
 
+  /** The Settings tab: a menu of the sub-pages below. */
   data object Settings : Route
+
+  /** One Settings sub-page. Not a tab: renders with a back chevron and no tab
+   * bar, the same way [Editor] and [Review] do. Back returns to the menu. */
+  data class SettingsDetail(val page: SettingsPage) : Route
+
   data class Editor(val slug: String) : Route
   data class Preview(val slug: String, val published: Boolean) : Route
   data class Focus(val slug: String) : Route
@@ -750,6 +769,100 @@ fun BloggoApp(launchIntent: Intent? = null) {
       storedToken = if (repoConnection.hasToken) repoConnectionRepository.getToken() else null
     }
 
+    // BuildConfig is disabled project-wide, so the version comes from the
+    // installed package. The `debug` build type's versionNameSuffix means a
+    // debug build already reports "1.1.0 (debug)" here.
+    val appVersion = remember {
+      runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+      }.getOrNull().orEmpty()
+    }
+
+    // Settings import/export (Settings -> Import / Export). Pretty-printed so a
+    // backup file is readable; encodeDefaults so `version` is always written;
+    // ignoreUnknownKeys so a newer file still imports on an older build.
+    val settingsJson = remember { Json { prettyPrint = true; encodeDefaults = true; ignoreUnknownKeys = true } }
+
+    fun currentSettingsBackup(): SettingsBackup = SettingsBackup(
+      repository = repoConnection.repository,
+      branch = repoConnection.branch,
+      siteUrl = repoConnection.siteUrl,
+      authorName = repoConnection.authorName,
+      postPath = repoConnection.postPath,
+      imagePath = repoConnection.imagePath,
+      hugoConfigFile = repoConnection.hugoConfigFile,
+      frontmatterFields = repoConnection.frontmatterFields,
+      publishAction = repoConnection.publishAction.name,
+      themeMode = themeMode.name,
+      artMode = artMode.name,
+      readabilityChecks = readabilityChecks.map { it.name },
+    )
+
+    // Applies every key present in [backup]; an absent key (null) is left
+    // exactly as it was, and the PAT is never touched. No connection re-check.
+    suspend fun applySettingsBackup(backup: SettingsBackup) {
+      if (backup.repository != null || backup.branch != null || backup.siteUrl != null || backup.authorName != null) {
+        repoConnectionRepository.setRepo(
+          repository = backup.repository ?: repoConnection.repository,
+          branch = backup.branch ?: repoConnection.branch,
+          siteUrl = backup.siteUrl ?: repoConnection.siteUrl,
+          authorName = backup.authorName ?: repoConnection.authorName,
+        )
+      }
+      backup.postPath?.let { repoConnectionRepository.setPostPath(it) }
+      backup.imagePath?.let { repoConnectionRepository.setImagePath(it) }
+      backup.hugoConfigFile?.let { repoConnectionRepository.setHugoConfigFile(it) }
+      backup.frontmatterFields?.let { repoConnectionRepository.setFrontmatterFields(it) }
+      backup.publishAction
+        ?.let { raw -> runCatching { PublishAction.valueOf(raw) }.getOrNull() }
+        ?.let { repoConnectionRepository.setPublishAction(it) }
+      backup.themeMode?.let { settingsRepository.setThemeMode(ThemeMode.fromStored(it)) }
+      backup.artMode
+        ?.let { raw -> ArtMode.entries.firstOrNull { it.name == raw } }
+        ?.let { settingsRepository.setArtMode(it) }
+      backup.readabilityChecks?.let { names ->
+        settingsRepository.setReadabilityChecks(
+          names.mapNotNullTo(mutableSetOf()) { n -> ReadabilityCheck.entries.firstOrNull { it.name == n } }
+        )
+      }
+    }
+
+    val exportSettingsLauncher = rememberLauncherForActivityResult(
+      ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+      if (uri == null) return@rememberLauncherForActivityResult
+      val payload = settingsJson.encodeToString(SettingsBackup.serializer(), currentSettingsBackup())
+      scope.launch {
+        val ok = runCatching {
+          withContext(Dispatchers.IO) {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(payload.toByteArray()) }
+              ?: error("no output stream")
+          }
+        }.isSuccess
+        toast = if (ok) "Settings exported" else "Couldn't export settings"
+      }
+    }
+
+    val importSettingsLauncher = rememberLauncherForActivityResult(
+      ActivityResultContracts.OpenDocument()
+    ) { uri ->
+      if (uri == null) return@rememberLauncherForActivityResult
+      scope.launch {
+        val backup = runCatching {
+          val text = withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+          } ?: error("no input stream")
+          settingsJson.decodeFromString(SettingsBackup.serializer(), text)
+        }.getOrNull()
+        if (backup == null) {
+          toast = "Couldn't read that settings file"
+        } else {
+          applySettingsBackup(backup)
+          toast = "Settings imported — open GitHub Connection and Save to reconnect"
+        }
+      }
+    }
+
     Box(
       Modifier
         .fillMaxSize()
@@ -919,48 +1032,83 @@ fun BloggoApp(launchIntent: Intent? = null) {
               )
             }
 
-            Route.Settings -> RepoScreen(
+            Route.Settings -> SettingsScreen(
               connection = repoConnection,
               publishedCount = posts.count { it.state == PostState.Published && it.kind == DocKind.Post },
               draftCount = posts.count { it.state == PostState.Draft && it.kind == DocKind.Post },
               openPullRequestCount = posts.count { it.state == PostState.InReview },
-              storedToken = storedToken,
               checkResult = connectionCheck,
-              isChecking = isCheckingConnection,
-              onSaveConnection = { repository, branch, siteUrl, authorName, token ->
-                scope.launch {
-                  repoConnectionRepository.setRepo(repository, branch, siteUrl, authorName)
-                  if (token.isNotBlank()) repoConnectionRepository.setToken(token)
-                  isCheckingConnection = true
-                  connectionCheck = null
-                  connectionCheck = gitHubClient.checkConnection(
-                    repository = repository,
-                    branch = branch,
-                    token = repoConnectionRepository.getToken(),
-                  )
-                  isCheckingConnection = false
-                }
-              },
-              onClearToken = {
-                scope.launch { repoConnectionRepository.clearToken() }
-                connectionCheck = null
-                toast = "Token cleared"
-              },
-              onSavePostPath = { path -> scope.launch { repoConnectionRepository.setPostPath(path) } },
-              onSaveImagePath = { path -> scope.launch { repoConnectionRepository.setImagePath(path) } },
-              onSaveHugoConfigFile = { file -> scope.launch { repoConnectionRepository.setHugoConfigFile(file) } },
-              onSaveFrontmatterFields = { fields -> scope.launch { repoConnectionRepository.setFrontmatterFields(fields) } },
-              onPublishActionChange = { action -> scope.launch { repoConnectionRepository.setPublishAction(action) } },
-              artMode = artMode,
-              onArtModeChange = { mode -> scope.launch { settingsRepository.setArtMode(mode) } },
-              themeMode = themeMode,
-              onThemeModeChange = { mode -> scope.launch { settingsRepository.setThemeMode(mode) } },
-              readabilityChecks = readabilityChecks,
-              onReadabilityChecksChange = { checks ->
-                scope.launch { settingsRepository.setReadabilityChecks(checks) }
-              },
-              onVisitSite = { openUrl("https://$siteHost") },
+              appVersion = appVersion,
+              onOpenPage = { go(Route.SettingsDetail(it)) },
             )
+
+            is Route.SettingsDetail -> when (route.page) {
+              SettingsPage.Connection -> SettingsConnectionScreen(
+                connection = repoConnection,
+                storedToken = storedToken,
+                checkResult = connectionCheck,
+                isChecking = isCheckingConnection,
+                onSave = { repository, branch, siteUrl, authorName, token ->
+                  scope.launch {
+                    repoConnectionRepository.setRepo(repository, branch, siteUrl, authorName)
+                    if (token.isNotBlank()) repoConnectionRepository.setToken(token)
+                    isCheckingConnection = true
+                    connectionCheck = null
+                    connectionCheck = gitHubClient.checkConnection(
+                      repository = repository,
+                      branch = branch,
+                      token = repoConnectionRepository.getToken(),
+                    )
+                    isCheckingConnection = false
+                  }
+                },
+                onClearToken = {
+                  scope.launch { repoConnectionRepository.clearToken() }
+                  connectionCheck = null
+                  toast = "Token cleared"
+                },
+                onVisitSite = { openUrl(repoConnection.siteUrl.ifBlank { "https://${SampleData.sampleSiteHost}" }) },
+                onBack = ::back,
+              )
+
+              SettingsPage.Repo -> SettingsRepoScreen(
+                connection = repoConnection,
+                checkResult = connectionCheck,
+                onSaveHugoConfigFile = { file -> scope.launch { repoConnectionRepository.setHugoConfigFile(file) } },
+                onSavePostPath = { path -> scope.launch { repoConnectionRepository.setPostPath(path) } },
+                onSaveImagePath = { path -> scope.launch { repoConnectionRepository.setImagePath(path) } },
+                onSaveFrontmatterFields = { fields -> scope.launch { repoConnectionRepository.setFrontmatterFields(fields) } },
+                onBack = ::back,
+              )
+
+              SettingsPage.Publishing -> SettingsPublishingScreen(
+                connection = repoConnection,
+                onPublishActionChange = { action -> scope.launch { repoConnectionRepository.setPublishAction(action) } },
+                onBack = ::back,
+              )
+
+              SettingsPage.Appearance -> SettingsAppearanceScreen(
+                themeMode = themeMode,
+                onThemeModeChange = { mode -> scope.launch { settingsRepository.setThemeMode(mode) } },
+                artMode = artMode,
+                onArtModeChange = { mode -> scope.launch { settingsRepository.setArtMode(mode) } },
+                onBack = ::back,
+              )
+
+              SettingsPage.Readability -> SettingsReadabilityScreen(
+                readabilityChecks = readabilityChecks,
+                onReadabilityChecksChange = { checks ->
+                  scope.launch { settingsRepository.setReadabilityChecks(checks) }
+                },
+                onBack = ::back,
+              )
+
+              SettingsPage.ImportExport -> SettingsImportExportScreen(
+                onExport = { exportSettingsLauncher.launch("bloggo-settings.json") },
+                onImport = { importSettingsLauncher.launch(arrayOf("application/json")) },
+                onBack = ::back,
+              )
+            }
 
             is Route.Editor -> {
               val post = postBySlug(route.slug)

@@ -1,12 +1,12 @@
-package com.rrajath.bloggo.ui.repo
+package com.rrajath.bloggo.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,8 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -40,226 +44,299 @@ import com.rrajath.bloggo.designsystem.component.BloggoAppBar
 import com.rrajath.bloggo.designsystem.component.BloggoButton
 import com.rrajath.bloggo.designsystem.component.BloggoChip
 import com.rrajath.bloggo.designsystem.component.BloggoIconButton
-import com.rrajath.bloggo.designsystem.component.ButtonTone
 import com.rrajath.bloggo.designsystem.component.BloggoSwitch
+import com.rrajath.bloggo.designsystem.component.ButtonTone
 import com.rrajath.bloggo.designsystem.component.Cell
 import com.rrajath.bloggo.designsystem.component.CellGroup
 import com.rrajath.bloggo.designsystem.component.ChipTone
-import com.rrajath.bloggo.designsystem.component.Eyebrow
 import com.rrajath.bloggo.designsystem.component.SegmentedControl
-import com.rrajath.bloggo.designsystem.component.StatLine
 import com.rrajath.bloggo.designsystem.icon.BloggoIcon
 import com.rrajath.bloggo.designsystem.icon.BloggoIcons
 import com.rrajath.bloggo.ui.review.ReadabilityCheck
 
-/**
- * What the app thinks your blog is, and how to correct it — plus the
- * app-wide preferences that don't belong to a single screen.
- *
- * Nothing about the connection is read-only: a Hugo site has no schema file
- * the app can trust blindly, so every path and field list below is a
- * correctable default rather than an assertion. Detection (the framework
- * name, whether a config file was found at all) still comes from the real
- * GitHub connection check; the specific filename, the paths, and the
- * frontmatter template are the writer's to set.
- */
+/* ---------------------------------------------------------------------------
+ * Shared scaffold
+ * ------------------------------------------------------------------------- */
+
+/** Every detail page: a back-chevron app bar and a scrolling, 18dp-inset body.
+ * No tab bar — [com.rrajath.bloggo.Route.SettingsDetail] is not a tab. */
 @Composable
-fun RepoScreen(
+private fun SettingsDetailScaffold(
+  title: String,
+  onBack: () -> Unit,
+  content: @Composable () -> Unit,
+) {
+  Column(
+    Modifier
+      .fillMaxSize()
+      .verticalScroll(rememberScrollState())
+  ) {
+    BloggoAppBar(title = title, onBack = onBack)
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 4.dp)) {
+      content()
+      Column(Modifier.padding(bottom = 38.dp)) {}
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 1. GitHub Connection
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsConnectionScreen(
   connection: RepoConnection,
-  publishedCount: Int,
-  draftCount: Int,
-  openPullRequestCount: Int,
   storedToken: String?,
   checkResult: ConnectionCheck?,
   isChecking: Boolean,
-  onSaveConnection: (repository: String, branch: String, siteUrl: String, authorName: String, token: String) -> Unit,
+  onSave: (repository: String, branch: String, siteUrl: String, authorName: String, token: String) -> Unit,
   onClearToken: () -> Unit,
+  onVisitSite: () -> Unit,
+  onBack: () -> Unit,
+) {
+  SettingsDetailScaffold("GitHub Connection", onBack) {
+    ConnectionSection(
+      connection = connection,
+      storedToken = storedToken,
+      onSave = onSave,
+      onClearToken = onClearToken,
+      onVisitSite = onVisitSite,
+    )
+    ConnectionStatus(checkResult = checkResult, isChecking = isChecking)
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. Repo Settings
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsRepoScreen(
+  connection: RepoConnection,
+  checkResult: ConnectionCheck?,
+  onSaveHugoConfigFile: (String) -> Unit,
   onSavePostPath: (String) -> Unit,
   onSaveImagePath: (String) -> Unit,
-  onSaveHugoConfigFile: (String) -> Unit,
   onSaveFrontmatterFields: (String) -> Unit,
-  onPublishActionChange: (PublishAction) -> Unit,
-  artMode: ArtMode,
-  onArtModeChange: (ArtMode) -> Unit,
-  themeMode: ThemeMode,
-  onThemeModeChange: (ThemeMode) -> Unit,
-  readabilityChecks: Set<ReadabilityCheck>,
-  onReadabilityChecksChange: (Set<ReadabilityCheck>) -> Unit,
-  onVisitSite: () -> Unit,
-  modifier: Modifier = Modifier,
+  onBack: () -> Unit,
 ) {
-  val colors = BloggoTheme.colors
-
   val framework = when {
     checkResult is ConnectionCheck.Connected && checkResult.hugoDetected -> "Hugo"
     checkResult is ConnectionCheck.Connected -> "Not detected"
     else -> "Hugo"
   }
-
-  Column(
-    modifier
-      .fillMaxSize()
-      .verticalScroll(rememberScrollState())
-  ) {
-    BloggoAppBar(
-      title = "Settings",
-      subtitle = (checkResult as? ConnectionCheck.Connected)?.let { "connected · ${it.defaultBranch}" },
-    )
-
-    Column(Modifier.padding(horizontal = 18.dp)) {
-      Eyebrow("GitHub connection")
-      ConnectionSection(
-        connection = connection,
-        storedToken = storedToken,
-        onSave = onSaveConnection,
-        onClearToken = onClearToken,
-        onVisitSite = onVisitSite,
+  SettingsDetailScaffold("Repo Settings", onBack) {
+    CellGroup(Modifier.padding(top = 4.dp)) {
+      ToggleEditableCell(
+        icon = BloggoIcons.Framework,
+        title = framework,
+        value = connection.hugoConfigFile,
+        buttonLabel = "Change",
+        onSave = onSaveHugoConfigFile,
       )
-      ConnectionStatus(checkResult = checkResult, isChecking = isChecking)
-
-      StatLine(
-        stats = listOf(
-          "$publishedCount" to "Posts",
-          "$draftCount" to "Drafts",
-          "$openPullRequestCount" to "Open PR",
-        ),
-        modifier = Modifier.padding(top = 16.dp),
+      EditableCell(
+        icon = BloggoIcons.File,
+        title = "Post path",
+        value = connection.postPath,
+        onSave = onSavePostPath,
       )
-
-      Eyebrow("Detected from your repo")
-      CellGroup {
-        ToggleEditableCell(
-          icon = BloggoIcons.Framework,
-          title = framework,
-          value = connection.hugoConfigFile,
-          buttonLabel = "Change",
-          onSave = onSaveHugoConfigFile,
-        )
-        EditableCell(
-          icon = BloggoIcons.File,
-          title = "Post path",
-          value = connection.postPath,
-          onSave = onSavePostPath,
-        )
-        EditableCell(
-          icon = BloggoIcons.Image,
-          title = "Image path",
-          value = connection.imagePath,
-          onSave = onSaveImagePath,
-        )
-        ToggleEditableCell(
-          icon = BloggoIcons.TextLines,
-          title = "Frontmatter fields",
-          value = connection.frontmatterFields,
-          buttonLabel = "Edit",
-          onSave = onSaveFrontmatterFields,
-          showDivider = false,
-        )
-      }
-
-      Eyebrow("Publishing")
-      CellGroup {
-        Cell(
-          title = "Default action",
-          subtitle = when (connection.publishAction) {
-            PublishAction.CommitToMain -> "Commits straight to main"
-            PublishAction.OpenPullRequest -> "Opens a pull request"
-            PublishAction.AskEveryTime -> "Asks for every post"
-          },
-          icon = BloggoIcons.Branch,
-          showDivider = false,
-          trailing = {
-            SegmentedControl(
-              options = listOf(PublishAction.CommitToMain, PublishAction.OpenPullRequest, PublishAction.AskEveryTime),
-              selected = connection.publishAction,
-              onSelect = onPublishActionChange,
-              modifier = Modifier.width(150.dp),
-              label = {
-                when (it) {
-                  PublishAction.CommitToMain -> "Main"
-                  PublishAction.OpenPullRequest -> "PR"
-                  PublishAction.AskEveryTime -> "Ask"
-                }
-              },
-            )
-          },
-        )
-      }
-
-      Eyebrow("Appearance")
-      CellGroup {
-        Cell(
-          title = "Theme",
-          subtitle = when (themeMode) {
-            ThemeMode.System -> "Matches your device"
-            ThemeMode.Light -> "Always light"
-            ThemeMode.Dark -> "Always dark"
-          },
-          icon = BloggoIcons.Sun,
-          trailing = {
-            SegmentedControl(
-              options = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark),
-              selected = themeMode,
-              onSelect = onThemeModeChange,
-              modifier = Modifier.width(180.dp),
-              label = {
-                when (it) {
-                  ThemeMode.System -> "Auto"
-                  ThemeMode.Light -> "Light"
-                  ThemeMode.Dark -> "Dark"
-                }
-              },
-            )
-          },
-        )
-        Cell(
-          title = "Cover art",
-          subtitle = "Generated covers on post cards",
-          icon = BloggoIcons.Image,
-          trailing = {
-            SegmentedControl(
-              options = listOf(ArtMode.Generated, ArtMode.None),
-              selected = artMode,
-              onSelect = onArtModeChange,
-              modifier = Modifier.width(150.dp),
-              label = { if (it == ArtMode.Generated) "On" else "Off" },
-            )
-          },
-        )
-        Cell(
-          title = "Reading typeface",
-          subtitle = "Newsreader, matched to your site",
-          icon = BloggoIcons.Typeface,
-          showDivider = false,
-        )
-      }
-
-      Eyebrow("Readability review")
-      CellGroup {
-        readabilityCheckRows.forEachIndexed { index, (check, title, subtitle) ->
-          Cell(
-            title = title,
-            subtitle = subtitle,
-            showDivider = index != readabilityCheckRows.lastIndex,
-            trailing = {
-              BloggoSwitch(
-                checked = check in readabilityChecks,
-                onCheckedChange = { on ->
-                  onReadabilityChecksChange(
-                    if (on) readabilityChecks + check else readabilityChecks - check
-                  )
-                },
-                contentDescription = title,
-              )
-            },
-          )
-        }
-      }
-
-      Column(Modifier.padding(bottom = 38.dp)) {}
+      EditableCell(
+        icon = BloggoIcons.Image,
+        title = "Image path",
+        value = connection.imagePath,
+        onSave = onSaveImagePath,
+      )
+      ToggleEditableCell(
+        icon = BloggoIcons.TextLines,
+        title = "Frontmatter fields",
+        value = connection.frontmatterFields,
+        buttonLabel = "Edit",
+        onSave = onSaveFrontmatterFields,
+        showDivider = false,
+      )
     }
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 3. Publishing
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsPublishingScreen(
+  connection: RepoConnection,
+  onPublishActionChange: (PublishAction) -> Unit,
+  onBack: () -> Unit,
+) {
+  SettingsDetailScaffold("Publishing", onBack) {
+    CellGroup(Modifier.padding(top = 4.dp)) {
+      Cell(
+        title = "Default action",
+        subtitle = when (connection.publishAction) {
+          PublishAction.CommitToMain -> "Commits straight to main"
+          PublishAction.OpenPullRequest -> "Opens a pull request"
+          PublishAction.AskEveryTime -> "Asks for every post"
+        },
+        icon = BloggoIcons.Branch,
+        showDivider = false,
+        trailing = {
+          SegmentedControl(
+            options = listOf(PublishAction.CommitToMain, PublishAction.OpenPullRequest, PublishAction.AskEveryTime),
+            selected = connection.publishAction,
+            onSelect = onPublishActionChange,
+            modifier = Modifier.width(150.dp),
+            label = {
+              when (it) {
+                PublishAction.CommitToMain -> "Main"
+                PublishAction.OpenPullRequest -> "PR"
+                PublishAction.AskEveryTime -> "Ask"
+              }
+            },
+          )
+        },
+      )
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. Appearance
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsAppearanceScreen(
+  themeMode: ThemeMode,
+  onThemeModeChange: (ThemeMode) -> Unit,
+  artMode: ArtMode,
+  onArtModeChange: (ArtMode) -> Unit,
+  onBack: () -> Unit,
+) {
+  SettingsDetailScaffold("Appearance", onBack) {
+    CellGroup(Modifier.padding(top = 4.dp)) {
+      Cell(
+        title = "Theme",
+        subtitle = when (themeMode) {
+          ThemeMode.System -> "Matches your device"
+          ThemeMode.Light -> "Always light"
+          ThemeMode.Dark -> "Always dark"
+        },
+        icon = BloggoIcons.Sun,
+        trailing = {
+          SegmentedControl(
+            options = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark),
+            selected = themeMode,
+            onSelect = onThemeModeChange,
+            modifier = Modifier.width(180.dp),
+            label = {
+              when (it) {
+                ThemeMode.System -> "Auto"
+                ThemeMode.Light -> "Light"
+                ThemeMode.Dark -> "Dark"
+              }
+            },
+          )
+        },
+      )
+      Cell(
+        title = "Cover art",
+        subtitle = "Generated covers on post cards",
+        icon = BloggoIcons.Image,
+        showDivider = false,
+        trailing = {
+          SegmentedControl(
+            options = listOf(ArtMode.Generated, ArtMode.None),
+            selected = artMode,
+            onSelect = onArtModeChange,
+            modifier = Modifier.width(150.dp),
+            label = { if (it == ArtMode.Generated) "On" else "Off" },
+          )
+        },
+      )
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Readability Review
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsReadabilityScreen(
+  readabilityChecks: Set<ReadabilityCheck>,
+  onReadabilityChecksChange: (Set<ReadabilityCheck>) -> Unit,
+  onBack: () -> Unit,
+) {
+  SettingsDetailScaffold("Readability Review", onBack) {
+    CellGroup(Modifier.padding(top = 4.dp)) {
+      readabilityCheckRows.forEachIndexed { index, (check, title, subtitle) ->
+        Cell(
+          title = title,
+          subtitle = subtitle,
+          showDivider = index != readabilityCheckRows.lastIndex,
+          trailing = {
+            BloggoSwitch(
+              checked = check in readabilityChecks,
+              onCheckedChange = { on ->
+                onReadabilityChecksChange(
+                  if (on) readabilityChecks + check else readabilityChecks - check
+                )
+              },
+              contentDescription = title,
+            )
+          },
+        )
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. Import / Export
+ * ------------------------------------------------------------------------- */
+
+@Composable
+fun SettingsImportExportScreen(
+  onExport: () -> Unit,
+  onImport: () -> Unit,
+  onBack: () -> Unit,
+) {
+  val colors = BloggoTheme.colors
+  SettingsDetailScaffold("Import / Export", onBack) {
+    Text(
+      "Export writes every setting except your access token to a JSON file. " +
+        "Import applies whatever it finds and leaves the rest untouched; it does " +
+        "not reconnect, so open GitHub Connection and Save afterward.",
+      style = BloggoTheme.type.body,
+      color = colors.inkFaint,
+      modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+    )
+    CellGroup {
+      Cell(
+        title = "Export settings",
+        subtitle = "Save a bloggo-settings.json file",
+        icon = BloggoIcons.Upload,
+        onClick = onExport,
+        trailing = {
+          BloggoIcon(BloggoIcons.ChevronRight, contentDescription = null, size = 18.dp, tint = colors.inkFaint)
+        },
+      )
+      Cell(
+        title = "Import settings",
+        subtitle = "Read settings from a JSON file",
+        icon = BloggoIcons.Download,
+        showDivider = false,
+        onClick = onImport,
+        trailing = {
+          BloggoIcon(BloggoIcons.ChevronRight, contentDescription = null, size = 18.dp, tint = colors.inkFaint)
+        },
+      )
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Shared privates (lifted from the old single RepoScreen)
+ * ------------------------------------------------------------------------- */
 
 /**
  * Paste a token, name the repo, save. Saving triggers a real
@@ -268,9 +345,7 @@ fun RepoScreen(
  *
  * The PAT field is seeded from [storedToken] rather than left blank: a saved
  * token that vanishes from the screen the moment you save it is
- * indistinguishable from one that never saved at all. It stays masked by
- * default, with an eye toggle to reveal it in plain text on demand — never
- * logged, never sent anywhere but the field itself.
+ * indistinguishable from one that never saved at all.
  */
 @Composable
 private fun ConnectionSection(
@@ -283,35 +358,41 @@ private fun ConnectionSection(
 ) {
   var repository by remember(connection.repository) { mutableStateOf(connection.repository) }
   var branch by remember(connection.branch) { mutableStateOf(connection.branch) }
-  var siteUrl by remember(connection.siteHost) { mutableStateOf(connection.siteHost) }
+  var siteUrl by remember(connection.siteUrl) { mutableStateOf(TextFieldValue(connection.siteUrl)) }
   var authorName by remember(connection.authorName) { mutableStateOf(connection.authorName) }
-  // Keyed on [storedToken] as well as on hasToken: the token is now read off the
-  // main thread, so it arrives a frame or two after this first composes and the
-  // field has to pick it up when it does.
   var token by remember(connection.hasToken, storedToken) { mutableStateOf(storedToken.orEmpty()) }
   var revealToken by remember { mutableStateOf(false) }
 
   CellGroup(modifier) {
     Column(Modifier.padding(horizontal = 15.dp)) {
-      ConnectionField(label = "Repository", value = repository, onValueChange = { repository = it })
-      ConnectionField(label = "Branch", value = branch, onValueChange = { branch = it })
-      ConnectionField(
-        label = "Site URL",
+      SettingsField(
+        label = "Repository",
+        value = repository,
+        onValueChange = { repository = it },
+        placeholder = "username/blog",
+      )
+      SettingsField(
+        label = "Branch",
+        value = branch,
+        onValueChange = { branch = it },
+        placeholder = "main",
+      )
+      SiteUrlField(
         value = siteUrl,
         onValueChange = { siteUrl = it },
-        trailing = if (siteUrl.isNotBlank()) {
-          { BloggoIconButton(BloggoIcons.ExternalLink, "Visit site", onVisitSite) }
-        } else null,
+        onVisitSite = onVisitSite.takeIf { siteUrl.text.isNotBlank() },
       )
-      ConnectionField(
+      SettingsField(
         label = "Author name",
         value = authorName,
         onValueChange = { authorName = it },
+        placeholder = "John Doe",
       )
-      ConnectionField(
+      SettingsField(
         label = "Fine-grained PAT",
         value = token,
         onValueChange = { token = it },
+        placeholder = "GitHub PAT to push your changes",
         mask = !revealToken,
         showDivider = false,
         trailing = {
@@ -339,7 +420,7 @@ private fun ConnectionSection(
         }
         BloggoButton(
           label = "Save",
-          onClick = { onSave(repository, branch, siteUrl, authorName, token) },
+          onClick = { onSave(repository, branch, siteUrl.text, authorName, token) },
           modifier = Modifier.padding(start = 9.dp),
         )
       }
@@ -401,11 +482,16 @@ private fun ConnectionStatus(
   }
 }
 
+/**
+ * A connection text field. Shows [placeholder] in faint ink when empty
+ * (prototype `.field input::placeholder{color:var(--ink-3)}`).
+ */
 @Composable
-private fun ConnectionField(
+private fun SettingsField(
   label: String,
   value: String,
   onValueChange: (String) -> Unit,
+  placeholder: String,
   modifier: Modifier = Modifier,
   mask: Boolean = false,
   showDivider: Boolean = true,
@@ -420,20 +506,84 @@ private fun ConnectionField(
       modifier = Modifier.padding(bottom = 7.dp),
     )
     Row(verticalAlignment = Alignment.CenterVertically) {
-      BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = true,
-        textStyle = BloggoTheme.type.monoField.copy(color = colors.ink),
-        visualTransformation = if (mask) PasswordVisualTransformation() else VisualTransformation.None,
-        cursorBrush = SolidColor(colors.accent),
-        modifier = Modifier.weight(1f),
-      )
+      Box(Modifier.weight(1f)) {
+        if (value.isEmpty()) {
+          Text(
+            placeholder,
+            style = BloggoTheme.type.monoField,
+            color = colors.inkFaint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+        BasicTextField(
+          value = value,
+          onValueChange = onValueChange,
+          singleLine = true,
+          textStyle = BloggoTheme.type.monoField.copy(color = colors.ink),
+          visualTransformation = if (mask) PasswordVisualTransformation() else VisualTransformation.None,
+          cursorBrush = SolidColor(colors.accent),
+          modifier = Modifier.fillMaxWidth(),
+        )
+      }
       if (trailing != null) trailing()
     }
     if (showDivider) {
       Box(Modifier.fillMaxWidth().padding(top = 14.dp).height(1.dp).background(colors.ruleSoft))
     }
+  }
+}
+
+/**
+ * The Site URL field. Stores the full URL including scheme, and — the one
+ * behavior that earns its own composable — prefills `https://` with the caret
+ * after the slashes the first time an empty field gains focus.
+ */
+@Composable
+private fun SiteUrlField(
+  value: TextFieldValue,
+  onValueChange: (TextFieldValue) -> Unit,
+  onVisitSite: (() -> Unit)?,
+) {
+  val colors = BloggoTheme.colors
+  Column(Modifier.padding(vertical = 14.dp)) {
+    Text(
+      "SITE URL",
+      style = BloggoTheme.type.fieldLabel,
+      color = colors.inkFaint,
+      modifier = Modifier.padding(bottom = 7.dp),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.weight(1f)) {
+        if (value.text.isEmpty()) {
+          Text(
+            "https://your-blog.com",
+            style = BloggoTheme.type.monoField,
+            color = colors.inkFaint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
+        BasicTextField(
+          value = value,
+          onValueChange = onValueChange,
+          singleLine = true,
+          textStyle = BloggoTheme.type.monoField.copy(color = colors.ink),
+          cursorBrush = SolidColor(colors.accent),
+          modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+              if (state.isFocused && value.text.isBlank()) {
+                onValueChange(TextFieldValue("https://", selection = TextRange(8)))
+              }
+            },
+        )
+      }
+      if (onVisitSite != null) {
+        BloggoIconButton(BloggoIcons.ExternalLink, "Visit site", onVisitSite)
+      }
+    }
+    Box(Modifier.fillMaxWidth().padding(top = 14.dp).height(1.dp).background(colors.ruleSoft))
   }
 }
 
@@ -546,36 +696,31 @@ private val readabilityCheckRows: List<Triple<ReadabilityCheck, String, String>>
   Triple(ReadabilityCheck.DraftMarkers, "Leftover draft markers", "TODO, FIXME, TK, or [bracketed] notes"),
 )
 
-@Preview(heightDp = 1200)
+@Preview
 @Composable
-private fun RepoPreview() {
+private fun ConnectionScreenPreview() {
   BloggoTheme {
-    RepoScreen(
-      connection = RepoConnection(
-        repository = "rrajath/blog",
-        branch = "main",
-        siteHost = "rrajath.dev",
-      ),
-      publishedCount = 38,
-      draftCount = 2,
-      openPullRequestCount = 1,
+    SettingsConnectionScreen(
+      connection = RepoConnection(repository = "rrajath/blog", siteUrl = "https://rrajath.dev"),
       storedToken = null,
       checkResult = null,
       isChecking = false,
-      onSaveConnection = { _, _, _, _, _ -> },
+      onSave = { _, _, _, _, _ -> },
       onClearToken = {},
-      onSavePostPath = {},
-      onSaveImagePath = {},
-      onSaveHugoConfigFile = {},
-      onSaveFrontmatterFields = {},
-      onPublishActionChange = {},
-      artMode = ArtMode.Generated,
-      onArtModeChange = {},
-      themeMode = ThemeMode.System,
-      onThemeModeChange = {},
+      onVisitSite = {},
+      onBack = {},
+    )
+  }
+}
+
+@Preview
+@Composable
+private fun ReadabilityScreenPreview() {
+  BloggoTheme {
+    SettingsReadabilityScreen(
       readabilityChecks = ReadabilityCheck.All,
       onReadabilityChecksChange = {},
-      onVisitSite = {},
+      onBack = {},
     )
   }
 }

@@ -81,7 +81,11 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
 - Share (from Preview, for either a post or a page) hands the title and the
   live URL to the native Android share sheet — a page's share text also
   includes the author name set on the Settings screen, when one is set
-- Live page access from the library, the preview, and the repo screen
+- Live page access from the library, the preview, and the settings screen
+- Settings is a menu of sub-pages (connection, repo, publishing, appearance,
+  readability, import/export), with the app version shown in a footer
+- Settings import/export to a JSON file — everything except the access token,
+  so a connection can be moved between devices
 - Cover art can be switched off entirely, and the layouts hold up without it
 - Light and dark, both complete palettes
 

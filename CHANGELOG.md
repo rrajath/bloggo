@@ -7,6 +7,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Settings is now a menu of six sub-pages (GitHub Connection, Repo Settings,
+  Publishing, Appearance, Readability Review, Import / Export), each with a
+  one-line description on the menu row.
+- Settings import/export: back up every setting except the access token to a
+  JSON file, and restore it on this or another device.
+- The installed app version is shown in a footer on the Settings menu.
+- Every GitHub connection field now has a placeholder, and the Site URL field
+  prefills `https://` the first time it is focused.
 - Separate `debug` build variant: debug builds install alongside release as
   their own app (`com.rrajath.bloggo.debug`, "Bloggo Debug", version suffixed
   " (debug)"), with a matching debug copy of the launcher-shortcut config.

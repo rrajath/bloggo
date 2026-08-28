@@ -286,7 +286,9 @@ All in `designsystem/component/`. Each has an `@Preview`.
 | Readability review (`ReviewScreen`, `app/ui/review/`) | Read-only analysis of the draft, reached from an accent toolbar button. A `StatLine` (grade level, hard sentences, passive count) over a mono counts line, a legend, then the prose in `articleBody` typography with `analysis*` washes on flagged sentences and words plus the `analysisNote` slate wash on spans a block-level check flagged, and an advisory Notes list below. Tapping a highlight shows the reason as a toast; long-pressing one offers to ignore it (persisted per post, cleared only by the header's recompute action). Screen-local for now; not in `designsystem/`. |
 | `PostRow` | Thumbnail, title, chip, meta, optional live-page button. |
 | `CaptureRow` | Inbox fragment, marked by an oversized opening quote. |
-| `CellGroup` / `Cell` | Grouped settings rows. |
+| `CellGroup` / `Cell` | Grouped settings rows. A `Cell` with `onClick` plus a trailing `BloggoIcons.ChevronRight` (18 dp, `inkFaint`) is a navigation row — the Settings menu is one `CellGroup` of these. |
+| Settings menu (`SettingsScreen`, `app/ui/settings/`) | The Settings tab is a menu: the `connected · <branch>` app bar, the `StatLine`, one `CellGroup` of six navigation `Cell`s (icon + title + one-line subtitle + chevron), then a centered version footer — `Bloggo` in `cellSubtitle` and the version string in `meta` (mono), both `inkFaint`. Each row pushes a non-tab `Route.SettingsDetail`. No prototype counterpart: a deliberate divergence, assembled from existing components rather than drawn. |
+| Settings detail pages (`SettingsDetailScreens.kt`, private) | Six stateless composables, each a back-chevron `BloggoAppBar` over the rows lifted from the old single screen. `SettingsField` is the connection text field: mono value, uppercased `fieldLabel`, and an `inkFaint` placeholder shown when empty (prototype `.field input::placeholder`). The Site URL field additionally prefills `https://` with the caret after the slashes the first time an empty field gains focus. |
 
 ### Chrome
 
@@ -417,6 +419,6 @@ walk with an abbreviation guard rather than the prototype's terminal-punctuation
 regex. The word lists and the thresholds are the parts to review, not the
 rendering.
 
-Every check has an on/off toggle under **Settings > Readability review**, stored
+Every check has an on/off toggle under **Settings > Readability Review**, stored
 by `SettingsRepository` as `readability_checks` (a comma-joined list of
 `ReadabilityCheck` names; absent means all on).

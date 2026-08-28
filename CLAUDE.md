@@ -51,8 +51,8 @@ Single-Activity Compose app. There is no Navigation Compose and there are no Vie
 
 - **`MainActivity`** — thin shell. `singleTask` launch mode plus `onNewIntent` so the "Capture a thought" launcher shortcut (`ACTION_CAPTURE_THOUGHT`) reaches the already-composed app instead of starting a second Activity.
 - **`BloggoApp`** (`BloggoApp.kt`) — owns everything: a hand-rolled back stack (`backStack: SnapshotStateList<Route>` plus a `go()` helper), all screen state hoisted as `remember { mutableStateOf(...) }`, and manual dependency construction (`remember { SettingsRepository(context) }` and friends). No DI framework.
-- **`Route`** — `sealed interface` with `Library`, `Inbox`, `Pages`, `Media`, `Settings` (renders `RepoScreen`), `Editor(slug)`, `Preview(slug, published)`, `Focus(slug)`, `Mastodon`.
-- **`ui/<feature>/`** — one package per screen (`editor`, `focus`, `inbox`, `library`, `mastodon`, `media`, `pages`, `preview`, `repo`, `sheet`). Screens are stateless composables that take data and callbacks from `BloggoApp`.
+- **`Route`** — `sealed interface` with `Library`, `Inbox`, `Pages`, `Media`, `Settings` (the settings menu, renders `SettingsScreen`), `SettingsDetail(page)` (one of six settings sub-pages, renders `SettingsDetailScreens.kt`), `Editor(slug)`, `Preview(slug, published)`, `Focus(slug)`, `Review(slug)`, `Mastodon`.
+- **`ui/<feature>/`** — one package per screen (`editor`, `focus`, `inbox`, `library`, `mastodon`, `media`, `pages`, `preview`, `review`, `settings`, `sheet`). Screens are stateless composables that take data and callbacks from `BloggoApp`. `ui/settings/` holds the menu (`SettingsScreen`) plus the six detail composables and their shared field/cell privates (`SettingsDetailScreens.kt`).
 - **`data/`** — repositories talk to GitHub, stores/caches hold local state:
   - `github/GitHubClient`, `github/GitHubApi` — the Retrofit + kotlinx.serialization GitHub client.
   - `library/PostLibraryRepository`, `library/PageLibraryRepository` — list/fetch posts and pages, backed by a Room cache (`PostCache`, `PageCache`).
@@ -61,7 +61,7 @@ Single-Activity Compose app. There is no Navigation Compose and there are no Vie
   - `review/ReadabilityIgnoreStore` — per-post readability findings the writer has ignored on the review screen.
   - `media/MediaRepository`, `media/MediaStaging` — repo images and pending uploads.
   - `publish/PostPublishRepository` — the GitHub Contents API PUT with retry on stale SHA.
-  - `RepoConnectionRepository`, `SettingsRepository`, `RepoPaths`, `SampleData`.
+  - `RepoConnectionRepository` (connection + PAT; `siteUrl` stored full, `siteHost` derived), `SettingsRepository`, `SettingsBackup` (the import/export JSON model, no token field), `RepoPaths`, `SampleData`.
 - **`model/Model.kt`** — pure-Kotlin domain: `Post`, `Fragment`, `MediaFile`, `MastodonAccount`, `PostState`, and all frontmatter parsing/assembly and slug helpers. Parse frontmatter through these helpers, never with ad-hoc regex elsewhere.
 
 Room is used only as a local cache for the library listing, not as a source of truth. The repository is the source of truth.

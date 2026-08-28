@@ -23,10 +23,13 @@ data class RepoConnection(
   val repository: String = "",
   val branch: String = "main",
   val hasToken: Boolean = false,
-  /** The live site's host, e.g. `rrajath.dev`. There is no reliable way to detect
-   * this from the repo alone — GitHub Pages is the only host discoverable via the
-   * API, and plenty of Hugo sites deploy elsewhere — so it is set by hand. */
-  val siteHost: String = "",
+  /** The live site's full URL including scheme, e.g. `https://rrajath.dev`, with
+   * no trailing slash. There is no reliable way to detect this from the repo
+   * alone — GitHub Pages is the only host discoverable via the API, and plenty
+   * of Hugo sites deploy elsewhere — so it is set by hand. [setRepo] normalizes
+   * whatever is typed (prepends `https://` if there is no scheme, strips a
+   * trailing slash). */
+  val siteUrl: String = "",
   /** Read into a page's share text ("<title> · <author>") — there is no
    * frontmatter or repo-detected source for this, so it is set by hand, same
    * as [siteHost]. Blank means the share text drops the "· <author>" part
@@ -46,7 +49,23 @@ data class RepoConnection(
   /** Comma-separated frontmatter field names a new post is seeded with. */
   val frontmatterFields: String = "title, date, tags, slug, draft",
   val publishAction: PublishAction = PublishAction.AskEveryTime,
-)
+) {
+  /** Host only, e.g. `rrajath.dev` — what [com.rrajath.bloggo.model.Post.liveUrl]
+   * and the publish permalink path expect. Derived from [siteUrl] so those call
+   * sites do not have to change. */
+  val siteHost: String get() = siteUrl.substringAfter("://").trimEnd('/')
+}
+
+/** Normalizes a typed site URL: blank stays blank, a missing scheme becomes
+ * `https://`, and any trailing slash is stripped. */
+internal fun normalizeSiteUrl(raw: String): String {
+  val trimmed = raw.trim()
+  if (trimmed.isEmpty()) return ""
+  val withScheme =
+    if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) trimmed
+    else "https://$trimmed"
+  return withScheme.trimEnd('/')
+}
 
 private val Context.repoConnectionDataStore by preferencesDataStore(name = "repo_connection")
 
@@ -65,6 +84,8 @@ class RepoConnectionRepository(private val context: Context) {
   private val repositoryKey = stringPreferencesKey("repository")
   private val branchKey = stringPreferencesKey("branch")
   private val hasTokenKey = booleanPreferencesKey("has_token")
+  private val siteUrlKey = stringPreferencesKey("site_url")
+  // Read only for one-time migration to [siteUrlKey] — no longer written.
   private val siteHostKey = stringPreferencesKey("site_host")
   private val authorNameKey = stringPreferencesKey("author_name")
   private val postPathKey = stringPreferencesKey("post_path")
@@ -92,7 +113,10 @@ class RepoConnectionRepository(private val context: Context) {
       repository = prefs[repositoryKey].orEmpty(),
       branch = prefs[branchKey]?.takeIf { it.isNotBlank() } ?: "main",
       hasToken = prefs[hasTokenKey] ?: false,
-      siteHost = prefs[siteHostKey].orEmpty(),
+      // Migration: an install that only ever stored the host-only value keeps
+      // working — it is read back as `https://<host>` until the next save
+      // rewrites it through [siteUrlKey].
+      siteUrl = prefs[siteUrlKey] ?: prefs[siteHostKey]?.takeIf { it.isNotBlank() }?.let { "https://$it" } ?: "",
       authorName = prefs[authorNameKey].orEmpty(),
       postPath = prefs[postPathKey]?.takeIf { it.isNotBlank() } ?: "content/posts/{slug}.md",
       imagePath = prefs[imagePathKey]?.takeIf { it.isNotBlank() } ?: "static/images/",
@@ -104,11 +128,11 @@ class RepoConnectionRepository(private val context: Context) {
     )
   }
 
-  suspend fun setRepo(repository: String, branch: String, siteHost: String, authorName: String) {
+  suspend fun setRepo(repository: String, branch: String, siteUrl: String, authorName: String) {
     context.repoConnectionDataStore.edit { prefs ->
       prefs[repositoryKey] = repository.trim()
       prefs[branchKey] = branch.trim().ifBlank { "main" }
-      prefs[siteHostKey] = siteHost.trim().removePrefix("https://").removePrefix("http://").trim('/')
+      prefs[siteUrlKey] = normalizeSiteUrl(siteUrl)
       prefs[authorNameKey] = authorName.trim()
     }
   }

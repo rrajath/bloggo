@@ -12,6 +12,16 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
+# Settings import/export model — the release build is minified, so keep the
+# generated serializer for SettingsBackup (Settings -> Import / Export).
+-keep,includedescriptorclasses class com.rrajath.bloggo.data.SettingsBackup$$serializer { *; }
+-keepclassmembers class com.rrajath.bloggo.data.SettingsBackup {
+    *** Companion;
+}
+-keepclasseswithmembers class com.rrajath.bloggo.data.SettingsBackup {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
 # kotlinx.serialization core keep rules (backstop for the plugin-generated ones).
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**

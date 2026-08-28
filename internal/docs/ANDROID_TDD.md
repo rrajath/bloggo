@@ -619,10 +619,20 @@ Everything below builds and runs on an emulator today.
   fold: the bottom nav's last tab (formerly labelled "Repo") now opens this
   screen, titled "Settings", and it is the sole destination for both the
   GitHub connection and app-wide appearance. Theme is Auto/Light/Dark, backed
-  by Preferences DataStore, and lives in the same "Appearance" section as
-  cover art and reading typeface. There is no separate cog icon on Library
-  any more; a standalone Settings destination existed briefly but was folded
-  back into this screen once it had somewhere better to live.
+  by Preferences DataStore. There is no separate cog icon on Library any more;
+  a standalone Settings destination existed briefly but was folded back into
+  this screen once it had somewhere better to live.
+  - Later split (see `internal/settings-split-plan.md`): the single scrolling
+    screen became a menu of six navigable sub-pages — GitHub Connection, Repo
+    Settings, Publishing, Appearance, Readability Review, Import / Export —
+    each a non-tab `Route.SettingsDetail(page)` with a back chevron. The menu
+    keeps the stat line and adds a version footer (read from `PackageManager`,
+    since `BuildConfig` is disabled). The "Reading typeface" row was removed.
+    The site URL is stored as a full URL including scheme (`RepoConnection.
+    siteUrl`); `siteHost` is a derived property so `Post.liveUrl` call sites
+    are unchanged, and a pre-existing host-only stored value migrates to
+    `https://<host>` on read. Import / Export round-trips every setting except
+    the PAT through `data/SettingsBackup.kt` and the Storage Access Framework.
 - `:app` — the storage half of §7.1 and §7.3: a "GitHub connection" section on
   the Settings screen that saves a repository, branch, and fine-grained PAT. The
   token goes to `EncryptedSharedPreferences` on the Keystore master key, never
