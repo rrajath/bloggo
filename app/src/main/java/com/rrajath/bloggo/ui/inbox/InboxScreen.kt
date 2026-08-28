@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,6 +72,9 @@ fun InboxScreen(
       )
 
       LazyColumn(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp)) {
+        if (fragments.isEmpty()) {
+          item { InboxEmptyState() }
+        }
         fragments.groupBy { it.bucket }.forEach { (bucket, items) ->
           item(key = "header-$bucket") { Eyebrow(bucket) }
           items(items.size, key = { items[it].id }) { position ->
@@ -111,10 +116,37 @@ fun InboxScreen(
   }
 }
 
+/** Shown in place of the fragment list before anything has been captured. Mirrors
+ * `PagesScreen`'s `PagesEmptyState`: a `cellTitle` line over a faint `meta` line,
+ * centered, near the top of the list area. */
+@Composable
+private fun InboxEmptyState(modifier: Modifier = Modifier) {
+  Column(
+    modifier.fillMaxWidth().padding(top = 30.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    Text("Nothing captured yet", style = BloggoTheme.type.cellTitle, color = BloggoTheme.colors.ink)
+    Text(
+      "Tap the + button to jot down a thought before it gets away",
+      style = BloggoTheme.type.meta,
+      color = BloggoTheme.colors.inkFaint,
+      modifier = Modifier.padding(top = 5.dp),
+    )
+  }
+}
+
 @Preview(heightDp = 800)
 @Composable
 private fun InboxPreview() {
   BloggoTheme {
     InboxScreen(fragments = SampleData.fragments, onOpen = {}, onCapture = {})
+  }
+}
+
+@Preview(name = "Empty", heightDp = 800)
+@Composable
+private fun InboxEmptyPreview() {
+  BloggoTheme {
+    InboxScreen(fragments = emptyList(), onOpen = {}, onCapture = {})
   }
 }

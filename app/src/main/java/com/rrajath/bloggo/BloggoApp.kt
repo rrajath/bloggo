@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.rrajath.bloggo.data.FrontmatterType
 import com.rrajath.bloggo.data.PublishAction
 import com.rrajath.bloggo.data.RepoConnection
 import com.rrajath.bloggo.data.RepoConnectionRepository
@@ -64,7 +65,6 @@ import com.rrajath.bloggo.data.publish.PostPublishRepository
 import com.rrajath.bloggo.data.publish.PublishResult
 import com.rrajath.bloggo.data.review.ReadabilityIgnoreStore
 import com.rrajath.bloggo.designsystem.BloggoTheme
-import com.rrajath.bloggo.designsystem.component.ArtMode
 import com.rrajath.bloggo.designsystem.component.BloggoTab
 import com.rrajath.bloggo.designsystem.component.BloggoTabBar
 import com.rrajath.bloggo.designsystem.component.BloggoToast
@@ -160,31 +160,37 @@ private val TABS = listOf(
 
 /** Builds a new post's frontmatter from the writer's own configured field list
  * (Settings screen), not a fixed shape — a field this app recognizes gets a real
- * default; anything else gets an empty line for the writer to fill in. */
+ * default; anything else gets an empty line for the writer to fill in. The fence
+ * style ([type]) follows the Repo Settings choice: YAML `---`/`key: value` or
+ * TOML `+++`/`key = value`, with strings quoted and the timestamp left bare in
+ * TOML, matching what `Model.kt`'s own frontmatter helpers already write. */
 private fun frontmatterFor(
   title: String,
   slug: String,
   fields: List<String>,
+  type: FrontmatterType,
   date: String = currentFrontmatterTimestamp(),
 ): String {
   val safeTitle = title.replace("\"", "'")
+  val toml = type == FrontmatterType.Toml
+  val fence = if (toml) "+++" else "---"
   val lines = fields.ifEmpty { listOf("title") }.joinToString("\n") { field ->
     when (field.trim().lowercase()) {
-      "title" -> "title: $safeTitle"
-      "date" -> "date: $date"
-      "slug" -> "slug: $slug"
-      "tags" -> "tags: []"
-      "draft" -> "draft: true"
-      else -> "${field.trim()}: "
+      "title" -> if (toml) "title = \"$safeTitle\"" else "title: $safeTitle"
+      "date" -> if (toml) "date = $date" else "date: $date"
+      "slug" -> if (toml) "slug = \"$slug\"" else "slug: $slug"
+      "tags" -> if (toml) "tags = []" else "tags: []"
+      "draft" -> if (toml) "draft = true" else "draft: true"
+      else -> if (toml) "${field.trim()} = \"\"" else "${field.trim()}: "
     }
   }
-  return "---\n$lines\n---\n\n"
+  return "$fence\n$lines\n$fence\n\n"
 }
 
 /** A genuinely empty post: what "new post" must open, never a stale sample. */
-private fun newBlankPost(fields: List<String>): Post {
+private fun newBlankPost(fields: List<String>, type: FrontmatterType): Post {
   val slug = "untitled-${System.currentTimeMillis()}"
-  val markdown = frontmatterFor(title = "Untitled", slug = "untitled", fields = fields)
+  val markdown = frontmatterFor(title = "Untitled", slug = "untitled", fields = fields, type = type)
   return Post(
     slug = slug,
     title = "Untitled",
@@ -196,17 +202,25 @@ private fun newBlankPost(fields: List<String>): Post {
   )
 }
 
-/** A page's frontmatter is fixed — title, slug, date — regardless of the
+/** A page's frontmatter fields are fixed — title, slug, date — regardless of the
  * writer's configured post field list: a page like About isn't tagged or
  * drafted, so [RepoConnection.frontmatterFields] (built for posts) doesn't
- * apply to it. */
-private fun frontmatterForPage(title: String, slug: String): String =
-  "---\ntitle: ${title.replace("\"", "'")}\nslug: $slug\ndate: ${currentFrontmatterTimestamp()}\n---\n\n"
+ * apply to it. The fence style still follows the Repo Settings [FrontmatterType]
+ * choice, so a page and a post created on the same site match. */
+private fun frontmatterForPage(title: String, slug: String, type: FrontmatterType): String {
+  val safeTitle = title.replace("\"", "'")
+  val date = currentFrontmatterTimestamp()
+  return if (type == FrontmatterType.Toml) {
+    "+++\ntitle = \"$safeTitle\"\nslug = \"$slug\"\ndate = $date\n+++\n\n"
+  } else {
+    "---\ntitle: $safeTitle\nslug: $slug\ndate: $date\n---\n\n"
+  }
+}
 
 /** A genuinely empty page, the Pages tab's counterpart to [newBlankPost]. */
-private fun newBlankPage(): Post {
+private fun newBlankPage(type: FrontmatterType): Post {
   val slug = "untitled-page-${System.currentTimeMillis()}"
-  val markdown = frontmatterForPage(title = "Untitled page", slug = "untitled-page")
+  val markdown = frontmatterForPage(title = "Untitled page", slug = "untitled-page", type = type)
   return Post(
     slug = slug,
     title = "Untitled page",
@@ -234,7 +248,7 @@ private fun resolveDisplayName(context: Context, uri: Uri): String {
 }
 
 /** "Promote to post": a fragment becomes the seed of a real, editable draft. */
-private fun newPostFromFragment(fragment: Fragment, fields: List<String>): Post {
+private fun newPostFromFragment(fragment: Fragment, fields: List<String>, type: FrontmatterType): Post {
   // Only the capture's first line, never more — a multi-line fragment used to
   // hand its first *sentence* to `title:`, which for a fragment with no
   // sentence-ending punctuation for a while meant several raw lines landing
@@ -249,7 +263,8 @@ private fun newPostFromFragment(fragment: Fragment, fields: List<String>): Post 
   // The moment the thought was actually captured, not whenever it happens to be
   // opened or promoted — see Fragment.capturedAtMillis's own doc comment.
   val date = frontmatterTimestampFromMillis(fragment.capturedAtMillis)
-  val markdown = frontmatterFor(title = title, slug = titleSlug, fields = fields, date = date) + "${fragment.text}\n"
+  val markdown =
+    frontmatterFor(title = title, slug = titleSlug, fields = fields, type = type, date = date) + "${fragment.text}\n"
   return Post(
     slug = slug,
     title = title,
@@ -319,7 +334,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
   val mediaRepository = remember { MediaRepository(gitHubClient) }
   val scope = rememberCoroutineScope()
   val themeMode by settingsRepository.themeMode.collectAsState(initial = ThemeMode.System)
-  val artMode by settingsRepository.artMode.collectAsState(initial = ArtMode.Generated)
   val readabilityChecks by settingsRepository.readabilityChecks
     .collectAsState(initial = ReadabilityCheck.All)
   val repoConnection by repoConnectionRepository.connection.collectAsState(initial = RepoConnection())
@@ -542,6 +556,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
       .split(",")
       .map { it.trim() }
       .filter { it.isNotEmpty() }
+    val frontmatterType = repoConnection.frontmatterType
 
     // Never leave the library with nothing to compose into — a delete or a
     // refresh that drops every draft must not leave "In progress" empty.
@@ -549,7 +564,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
     // invariant to preserve.
     fun ensureDraftExists() {
       if (posts.none { it.state == PostState.Draft && it.kind == DocKind.Post }) {
-        val blank = newBlankPost(defaultFrontmatterFields)
+        val blank = newBlankPost(defaultFrontmatterFields, frontmatterType)
         posts.add(blank)
         persistIfLocal(blank)
       }
@@ -792,9 +807,9 @@ fun BloggoApp(launchIntent: Intent? = null) {
       imagePath = repoConnection.imagePath,
       hugoConfigFile = repoConnection.hugoConfigFile,
       frontmatterFields = repoConnection.frontmatterFields,
+      frontmatterType = repoConnection.frontmatterType.name,
       publishAction = repoConnection.publishAction.name,
       themeMode = themeMode.name,
-      artMode = artMode.name,
       readabilityChecks = readabilityChecks.map { it.name },
     )
 
@@ -813,13 +828,13 @@ fun BloggoApp(launchIntent: Intent? = null) {
       backup.imagePath?.let { repoConnectionRepository.setImagePath(it) }
       backup.hugoConfigFile?.let { repoConnectionRepository.setHugoConfigFile(it) }
       backup.frontmatterFields?.let { repoConnectionRepository.setFrontmatterFields(it) }
+      backup.frontmatterType
+        ?.let { raw -> runCatching { FrontmatterType.valueOf(raw) }.getOrNull() }
+        ?.let { repoConnectionRepository.setFrontmatterType(it) }
       backup.publishAction
         ?.let { raw -> runCatching { PublishAction.valueOf(raw) }.getOrNull() }
         ?.let { repoConnectionRepository.setPublishAction(it) }
       backup.themeMode?.let { settingsRepository.setThemeMode(ThemeMode.fromStored(it)) }
-      backup.artMode
-        ?.let { raw -> ArtMode.entries.firstOrNull { it.name == raw } }
-        ?.let { settingsRepository.setArtMode(it) }
       backup.readabilityChecks?.let { names ->
         settingsRepository.setReadabilityChecks(
           names.mapNotNullTo(mutableSetOf()) { n -> ReadabilityCheck.entries.firstOrNull { it.name == n } }
@@ -911,7 +926,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 } else {
                   "${SampleData.sampleRepository} · ${SampleData.sampleBranch} · hugo"
                 },
-                artMode = artMode,
                 isRefreshing = isRefreshingLibrary,
                 onRefresh = { scope.launch { refreshLibrary(explicit = true) } },
                 onOpenDraft = { post -> go(Route.Editor(post.slug)) },
@@ -930,7 +944,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 // (PostDetailsSheet, wired below in Route.Editor) makes it
                 // real. See transientFragmentPost's own doc comment.
                 transientFragmentSource = fragment
-                transientFragmentPost = newPostFromFragment(fragment, defaultFrontmatterFields)
+                transientFragmentPost = newPostFromFragment(fragment, defaultFrontmatterFields, frontmatterType)
                 go(Route.Editor(transientFragmentPost!!.slug))
               },
               onCapture = { text ->
@@ -955,7 +969,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 isRefreshing = isRefreshingPages,
                 onRefresh = { scope.launch { refreshPages(explicit = true) } },
                 onNewPage = {
-                  val blank = newBlankPage()
+                  val blank = newBlankPage(frontmatterType)
                   posts.add(blank)
                   persistIfLocal(blank)
                   go(Route.Editor(blank.slug))
@@ -973,7 +987,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
               // into one list only while this screen is actually showing —
               // the same "not a top-level val" reason `drafts`/`published`
               // and `tagPool` aren't either (Milestone 10/12, PROGRESS.md).
-              val displayedMedia = remember(mediaFiles, stagedMedia.toList(), posts.toList()) {
+              val displayedMedia = remember(mediaFiles, stagedMedia.toList()) {
                 val stagedAsFiles = stagedMedia.map { media ->
                   MediaFile(
                     name = media.originalFileName,
@@ -982,10 +996,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
                     localPath = media.localPath,
                   )
                 }
-                val usedByPost = posts.mapNotNull { post -> post.cover?.let { it to post.slug } }.toMap()
-                (stagedAsFiles + mediaFiles).map { file ->
-                  if (file.usedBy == null) file.copy(usedBy = usedByPost[file.sitePath]) else file
-                }
+                stagedAsFiles + mediaFiles
               }
               val onPickForReturn: ((MediaFile) -> Unit)? = if (returnSlug == null) null else { file ->
                 if (file.isStaged) {
@@ -1078,6 +1089,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 onSavePostPath = { path -> scope.launch { repoConnectionRepository.setPostPath(path) } },
                 onSaveImagePath = { path -> scope.launch { repoConnectionRepository.setImagePath(path) } },
                 onSaveFrontmatterFields = { fields -> scope.launch { repoConnectionRepository.setFrontmatterFields(fields) } },
+                onSaveFrontmatterType = { type -> scope.launch { repoConnectionRepository.setFrontmatterType(type) } },
                 onBack = ::back,
               )
 
@@ -1090,8 +1102,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
               SettingsPage.Appearance -> SettingsAppearanceScreen(
                 themeMode = themeMode,
                 onThemeModeChange = { mode -> scope.launch { settingsRepository.setThemeMode(mode) } },
-                artMode = artMode,
-                onArtModeChange = { mode -> scope.launch { settingsRepository.setArtMode(mode) } },
                 onBack = ::back,
               )
 
@@ -1130,7 +1140,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
               }
               EditorScreen(
                 post = post,
-                imagePath = repoConnection.imagePath,
                 tagPool = tagPool,
                 connection = repoConnection,
                 remoteSlugs = if (post.kind == DocKind.Page) remotePageSlugs else remotePostSlugs,
@@ -1164,10 +1173,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 onFocus = { go(Route.Focus(route.slug)) },
                 onReview = { go(Route.Review(route.slug)) },
                 onToast = { toast = it },
-                onCoverGenerated = { path ->
-                  updatePost(route.slug) { it.copy(cover = path) }
-                  toast = "Cover generated and staged"
-                },
                 onDeletePost = {
                   val isPage = post.kind == DocKind.Page
                   val remoteSlugs = if (isPage) remotePageSlugs else remotePostSlugs
@@ -1437,7 +1442,7 @@ fun BloggoApp(launchIntent: Intent? = null) {
               )
             },
             onCompose = {
-              val blank = newBlankPost(defaultFrontmatterFields)
+              val blank = newBlankPost(defaultFrontmatterFields, frontmatterType)
               posts.add(blank)
               persistIfLocal(blank)
               go(Route.Editor(blank.slug))

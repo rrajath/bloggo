@@ -83,7 +83,6 @@ class EditorScreenRapidInputTest {
       BloggoTheme {
         EditorScreen(
           post = post,
-          imagePath = "static/images/",
           tagPool = emptyList(),
           connection = RepoConnection(),
           remoteSlugs = emptySet(),
@@ -100,7 +99,6 @@ class EditorScreenRapidInputTest {
           onFocus = {},
           onReview = {},
           onToast = {},
-          onCoverGenerated = {},
           onDeletePost = {},
           onMoveToInbox = {},
           onPublish = { _, _ -> },

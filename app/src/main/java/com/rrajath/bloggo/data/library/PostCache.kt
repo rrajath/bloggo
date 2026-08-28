@@ -33,7 +33,6 @@ data class PostCacheEntity(
   val title: String,
   val date: String?,
   val draft: Boolean,
-  val cover: String?,
   val markdown: String,
   /** Word count of [markdown], measured once when the file was fetched. A post
    * whose blob SHA is unchanged cannot have a changed word count, so re-counting
@@ -225,12 +224,23 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
   }
 }
 
+/** Drops the `cover` column from `post_cache` and `local_post` — generated
+ * cover art was removed from the app entirely, so the frontmatter `cover:`
+ * value is no longer read, displayed, or written anywhere. `DROP COLUMN` is
+ * available on the SQLite that ships with `minSdk 34`. */
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+  override fun migrate(connection: SQLiteConnection) {
+    connection.execSQL("ALTER TABLE `post_cache` DROP COLUMN `cover`")
+    connection.execSQL("ALTER TABLE `local_post` DROP COLUMN `cover`")
+  }
+}
+
 @Database(
   entities = [
     PostCacheEntity::class, PageCacheEntity::class, LocalPostEntity::class,
     FragmentEntity::class, ReadabilityIgnoreEntity::class,
   ],
-  version = 7,
+  version = 8,
   exportSchema = false,
 )
 abstract class BloggoDatabase : RoomDatabase() {
@@ -247,7 +257,7 @@ abstract class BloggoDatabase : RoomDatabase() {
       instance ?: Room.databaseBuilder(context, BloggoDatabase::class.java, "bloggo.db")
         .addMigrations(
           MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-          MIGRATION_6_7,
+          MIGRATION_6_7, MIGRATION_7_8,
         )
         .build()
         .also { instance = it }

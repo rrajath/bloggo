@@ -18,6 +18,16 @@ enum class PublishAction {
   AskEveryTime,
 }
 
+/** The fence style a new post or page is seeded with. Hugo accepts either;
+ * `---` (YAML, `key: value`) is the default, `+++` (TOML, `key = value`) is
+ * what a TOML-configured site's archetypes usually produce. Existing files are
+ * read either way regardless of this setting — see `Model.kt`'s frontmatter
+ * helpers — this only decides what a freshly created document opens with. */
+enum class FrontmatterType {
+  Yaml,
+  Toml,
+}
+
 /** What the app knows about the connected repo, before any GitHub call is made. */
 data class RepoConnection(
   val repository: String = "",
@@ -41,13 +51,15 @@ data class RepoConnection(
    * [com.rrajath.bloggo.model.Post.repoPath] for why an already-committed post
    * skips this template on every later publish. */
   val postPath: String = "content/posts/{slug}.md",
-  /** Where a generated or uploaded cover is written, repo-relative. */
+  /** Where an uploaded image is written, repo-relative. */
   val imagePath: String = "static/images/",
   /** The Hugo config filename the app treats as canonical. Corrects what
    * detection found, or stands in for it before a connection exists. */
   val hugoConfigFile: String = "config.toml",
   /** Comma-separated frontmatter field names a new post is seeded with. */
   val frontmatterFields: String = "title, date, tags, slug, draft",
+  /** Fence style a newly created post or page opens with. */
+  val frontmatterType: FrontmatterType = FrontmatterType.Yaml,
   val publishAction: PublishAction = PublishAction.AskEveryTime,
 ) {
   /** Host only, e.g. `rrajath.dev` — what [com.rrajath.bloggo.model.Post.liveUrl]
@@ -92,6 +104,7 @@ class RepoConnectionRepository(private val context: Context) {
   private val imagePathKey = stringPreferencesKey("image_path")
   private val hugoConfigFileKey = stringPreferencesKey("hugo_config_file")
   private val frontmatterFieldsKey = stringPreferencesKey("frontmatter_fields")
+  private val frontmatterTypeKey = stringPreferencesKey("frontmatter_type")
   private val publishActionKey = stringPreferencesKey("publish_action")
 
   private val masterKey by lazy {
@@ -122,6 +135,9 @@ class RepoConnectionRepository(private val context: Context) {
       imagePath = prefs[imagePathKey]?.takeIf { it.isNotBlank() } ?: "static/images/",
       hugoConfigFile = prefs[hugoConfigFileKey]?.takeIf { it.isNotBlank() } ?: "config.toml",
       frontmatterFields = prefs[frontmatterFieldsKey]?.takeIf { it.isNotBlank() } ?: "title, date, tags, slug, draft",
+      frontmatterType = prefs[frontmatterTypeKey]?.let { saved ->
+        runCatching { FrontmatterType.valueOf(saved) }.getOrNull()
+      } ?: FrontmatterType.Yaml,
       publishAction = prefs[publishActionKey]?.let { saved ->
         runCatching { PublishAction.valueOf(saved) }.getOrNull()
       } ?: PublishAction.AskEveryTime,
@@ -151,6 +167,10 @@ class RepoConnectionRepository(private val context: Context) {
 
   suspend fun setFrontmatterFields(fields: String) {
     context.repoConnectionDataStore.edit { prefs -> prefs[frontmatterFieldsKey] = fields.trim() }
+  }
+
+  suspend fun setFrontmatterType(type: FrontmatterType) {
+    context.repoConnectionDataStore.edit { prefs -> prefs[frontmatterTypeKey] = type.name }
   }
 
   suspend fun setPublishAction(action: PublishAction) {

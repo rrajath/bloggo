@@ -32,12 +32,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.rrajath.bloggo.data.FrontmatterType
 import com.rrajath.bloggo.data.PublishAction
 import com.rrajath.bloggo.data.RepoConnection
 import com.rrajath.bloggo.data.ThemeMode
 import com.rrajath.bloggo.data.github.ConnectionCheck
 import com.rrajath.bloggo.designsystem.BloggoTheme
-import com.rrajath.bloggo.designsystem.component.ArtMode
 import com.rrajath.bloggo.designsystem.component.Banner
 import com.rrajath.bloggo.designsystem.component.BannerTone
 import com.rrajath.bloggo.designsystem.component.BloggoAppBar
@@ -118,6 +118,7 @@ fun SettingsRepoScreen(
   onSavePostPath: (String) -> Unit,
   onSaveImagePath: (String) -> Unit,
   onSaveFrontmatterFields: (String) -> Unit,
+  onSaveFrontmatterType: (FrontmatterType) -> Unit,
   onBack: () -> Unit,
 ) {
   val framework = when {
@@ -152,7 +153,24 @@ fun SettingsRepoScreen(
         value = connection.frontmatterFields,
         buttonLabel = "Edit",
         onSave = onSaveFrontmatterFields,
+      )
+      Cell(
+        title = "Frontmatter type",
+        subtitle = when (connection.frontmatterType) {
+          FrontmatterType.Yaml -> "New posts open with --- fences"
+          FrontmatterType.Toml -> "New posts open with +++ fences"
+        },
+        icon = BloggoIcons.Code,
         showDivider = false,
+        trailing = {
+          SegmentedControl(
+            options = listOf(FrontmatterType.Yaml, FrontmatterType.Toml),
+            selected = connection.frontmatterType,
+            onSelect = onSaveFrontmatterType,
+            modifier = Modifier.width(130.dp),
+            label = { if (it == FrontmatterType.Yaml) "YAML" else "TOML" },
+          )
+        },
       )
     }
   }
@@ -207,8 +225,6 @@ fun SettingsPublishingScreen(
 fun SettingsAppearanceScreen(
   themeMode: ThemeMode,
   onThemeModeChange: (ThemeMode) -> Unit,
-  artMode: ArtMode,
-  onArtModeChange: (ArtMode) -> Unit,
   onBack: () -> Unit,
 ) {
   SettingsDetailScaffold("Appearance", onBack) {
@@ -221,6 +237,7 @@ fun SettingsAppearanceScreen(
           ThemeMode.Dark -> "Always dark"
         },
         icon = BloggoIcons.Sun,
+        showDivider = false,
         trailing = {
           SegmentedControl(
             options = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark),
@@ -234,21 +251,6 @@ fun SettingsAppearanceScreen(
                 ThemeMode.Dark -> "Dark"
               }
             },
-          )
-        },
-      )
-      Cell(
-        title = "Cover art",
-        subtitle = "Generated covers on post cards",
-        icon = BloggoIcons.Image,
-        showDivider = false,
-        trailing = {
-          SegmentedControl(
-            options = listOf(ArtMode.Generated, ArtMode.None),
-            selected = artMode,
-            onSelect = onArtModeChange,
-            modifier = Modifier.width(150.dp),
-            label = { if (it == ArtMode.Generated) "On" else "Off" },
           )
         },
       )

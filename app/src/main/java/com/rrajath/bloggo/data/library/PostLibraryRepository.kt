@@ -121,7 +121,6 @@ private fun PostTreeEntry.toCacheEntity(markdown: String): PostCacheEntity {
     title = frontmatter["title"]?.takeIf { it.isNotBlank() } ?: slug,
     date = frontmatter.effectiveDate(),
     draft = frontmatter["draft"]?.equals("true", ignoreCase = true) ?: false,
-    cover = frontmatter["cover"]?.takeIf { it.isNotBlank() },
     markdown = markdown,
     wordCount = markdown.markdownWordCount(),
   )
@@ -137,6 +136,5 @@ private fun PostCacheEntity.toPost(): Post = Post(
   // Parsed here, next to the display string it comes from, so sorting the
   // library never has to reach back into the markdown for it.
   dateMillis = date?.let(::parseFrontmatterDateEpochMillis),
-  cover = cover,
   repoPath = path,
 )

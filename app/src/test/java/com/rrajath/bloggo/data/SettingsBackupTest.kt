@@ -21,9 +21,9 @@ class SettingsBackupTest {
       imagePath = "static/images/",
       hugoConfigFile = "hugo.toml",
       frontmatterFields = "title, date, tags",
+      frontmatterType = FrontmatterType.Toml.name,
       publishAction = PublishAction.OpenPullRequest.name,
       themeMode = ThemeMode.Dark.name,
-      artMode = "None",
       readabilityChecks = listOf("Adverbs", "PassiveVoice"),
     )
 

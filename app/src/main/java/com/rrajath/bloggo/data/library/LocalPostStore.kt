@@ -72,7 +72,6 @@ class LocalPostStore(
         wordCount = post.wordCount,
         date = post.date,
         dateMillis = post.dateMillis,
-        cover = post.cover,
         updatedAt = post.updatedAt,
         editedAgo = post.editedAgo,
       )
@@ -107,7 +106,6 @@ private fun LocalPostEntity.toPost(markdown: String): Post = Post(
   wordCount = wordCount,
   date = date,
   editedAgo = editedAgo,
-  cover = cover,
   updatedAt = updatedAt,
   dateMillis = dateMillis,
   // repoPath is deliberately left null: a row here has never been committed.

@@ -51,8 +51,6 @@ data class Post(
   /** Relative edit time for drafts, e.g. "9m ago". */
   val editedAgo: String? = null,
   val pullRequest: Int? = null,
-  /** Frontmatter `cover:`, a site absolute path such as `/images/2026/slug.png`. */
-  val cover: String? = null,
   /** Epoch millis of the last local edit. Null for a post that has never been
    * edited on this device — see [lastEditedAtMillis] for the fallback used then. */
   val updatedAt: Long? = null,
@@ -371,7 +369,7 @@ data class PageFrontmatterEdits(
 
 /** [withFrontmatterEdits]'s counterpart for a page: title, slug, date and
  * [lastmod] are rewritten (or appended), nothing else — a page's frontmatter
- * sheet never touches tags, draft, or a cover. */
+ * sheet never touches tags or draft. */
 fun String.withPageFrontmatterEdits(edits: PageFrontmatterEdits, lastmod: String): String {
   val isToml = frontmatterFence() == TOML_FENCE
   fun quotedIfToml(value: String) = if (isToml) "\"$value\"" else value

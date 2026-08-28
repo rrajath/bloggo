@@ -1,13 +1,10 @@
 package com.rrajath.bloggo.ui.sheet
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,31 +21,21 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.rrajath.bloggo.coverart.CoverArt
-import com.rrajath.bloggo.coverart.CoverArtPalette
-import com.rrajath.bloggo.coverart.CoverArtSize
-import com.rrajath.bloggo.data.SampleData
-import com.rrajath.bloggo.data.repoPathToSitePath
 import com.rrajath.bloggo.designsystem.BloggoTheme
 import com.rrajath.bloggo.designsystem.component.BloggoButton
 import com.rrajath.bloggo.designsystem.component.BloggoSwitch
 import com.rrajath.bloggo.designsystem.component.BloggoTagField
 import com.rrajath.bloggo.designsystem.component.ButtonTone
-import com.rrajath.bloggo.designsystem.icon.BloggoIcon
-import com.rrajath.bloggo.designsystem.icon.BloggoIconSize
 import com.rrajath.bloggo.designsystem.icon.BloggoIcons
 import com.rrajath.bloggo.model.DocKind
 import com.rrajath.bloggo.model.Post
@@ -70,8 +57,8 @@ import kotlinx.coroutines.launch
  * to a debounced pass keeps every keystroke's callback to one write. */
 private const val SLUG_SYNC_DEBOUNCE_MS = 500L
 
-/** Frontmatter editing, plus the cover. Every field reads from `post.markdown`'s
- * actual frontmatter, never from a stand-in, and every edited field is handed
+/** Frontmatter editing. Every field reads from `post.markdown`'s actual
+ * frontmatter, never from a stand-in, and every edited field is handed
  * back on save — [onSave] is the only way any of this reaches the real `Post`,
  * so nothing here may be state that dies with the composable.
  *
@@ -84,7 +71,6 @@ private const val SLUG_SYNC_DEBOUNCE_MS = 500L
 @Composable
 fun PostDetailsSheet(
   post: Post,
-  imagePath: String,
   tagPool: List<String>,
   /** [com.rrajath.bloggo.model.isPushed] for [post] — whether it already
    * exists in the repo, as opposed to only on this device. Changes what the
@@ -102,7 +88,6 @@ fun PostDetailsSheet(
   isFragmentPreview: Boolean = false,
   onDismiss: () -> Unit,
   onSave: (title: String, slug: String, date: String, tags: List<String>, draft: Boolean) -> Unit,
-  onCoverGenerated: (String) -> Unit,
   onDelete: () -> Unit,
   onMoveToInbox: () -> Unit,
   /** Promotes [post] from a transient fragment preview to a real Draft: adds
@@ -165,8 +150,8 @@ fun PostDetailsSheet(
       SheetField("Slug", slug, { slug = it }, mono = true)
       SheetField("Date", date, { date = it }, mono = true)
 
-      // A page like About isn't tagged, drafted, or given a cover — showing
-      // those fields would ask the writer to fill in something meaningless.
+      // A page like About isn't tagged or drafted — showing those fields would
+      // ask the writer to fill in something meaningless.
       // docs/PROTOTYPE_NOTES.md, "Pages replaced Media".
       var tags by remember(post.markdown) { mutableStateOf(frontmatter["tags"]?.parseTagList().orEmpty()) }
       if (post.kind == DocKind.Post) {
@@ -192,8 +177,6 @@ fun PostDetailsSheet(
           }
           BloggoSwitch(draft, { draft = it }, contentDescription = "Keep as draft")
         }
-
-        CoverSection(post = post, imagePath = imagePath, onCoverGenerated = onCoverGenerated)
       }
 
       // A fragment preview is still just an Inbox item wearing the Editor's
@@ -296,126 +279,6 @@ fun PostDetailsSheet(
   }
 }
 
-/**
- * The cover.
- *
- * Generate renders the art from the post slug, so the same post always gets the
- * same picture. Shuffle walks a variant counter rather than going random, which
- * keeps the result reproducible from `slug` plus one small integer, and means the
- * chosen cover can be regenerated later from the repo alone.
- *
- * On save the PNG is written under the Settings screen's configured image path (any
- * upload lands there too) and the frontmatter `cover:` field is set to the site
- * absolute path — the same file, minus the `static/` prefix Hugo strips when it
- * serves that directory at the site root. It is not inserted into the body: the
- * Hugo theme decides how a cover is presented, and writing it twice is how posts
- * end up with the image showing twice.
- */
-@Composable
-private fun CoverSection(post: Post, imagePath: String, onCoverGenerated: (String) -> Unit) {
-  val colors = BloggoTheme.colors
-  var variant by remember { mutableIntStateOf(0) }
-  var generated by remember { mutableStateOf(post.cover != null) }
-  // Collapsed by default: the cover preview and its buttons are the tallest
-  // thing in this sheet, and most edits here are to the text fields above.
-  // Collapsed content isn't just hidden, it isn't composed at all, so the
-  // sheet's measured height shrinks to fit the header alone instead of
-  // reserving space — and growing the sheet toward the top of the screen —
-  // for art nobody asked to see.
-  var expanded by remember { mutableStateOf(false) }
-
-  val year = remember { java.time.Year.now().value }
-  val repoPath = remember(imagePath, post.slug, year) {
-    "${imagePath.trim().trim('/')}/$year/${post.slug}.png"
-  }
-  val sitePath = remember(repoPath) { repoPathToSitePath(repoPath) }
-
-  // Not a plain Eyebrow() + icon side by side: Eyebrow's own top=22dp/bottom=11dp
-  // padding is asymmetric, so its label sits below the geometric center of its
-  // box. Centering a bare icon against that box (not against the label itself)
-  // left the chevron floating a few dp above the "COVER" text. Applying the
-  // same padding to the whole row, with text/rule/icon as siblings inside it,
-  // keeps all three vertically centered against one another instead.
-  Row(
-    Modifier
-      .fillMaxWidth()
-      .clickable { expanded = !expanded }
-      .padding(top = 22.dp, bottom = 11.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(9.dp),
-  ) {
-    Text(
-      "Cover".uppercase(),
-      style = BloggoTheme.type.eyebrow,
-      color = colors.inkFaint,
-    )
-    Box(
-      Modifier
-        .weight(1f)
-        .height(1.dp)
-        .background(colors.rule)
-    )
-    BloggoIcon(
-      icon = BloggoIcons.ChevronRight,
-      contentDescription = if (expanded) "Collapse cover art" else "Expand cover art",
-      size = BloggoIconSize.Small,
-      tint = colors.inkFaint,
-      modifier = Modifier.rotate(if (expanded) 90f else 0f),
-    )
-  }
-
-  if (expanded) {
-    Box(
-      Modifier
-        .fillMaxWidth()
-        .aspectRatio(1200f / 630f)
-        .clip(BloggoTheme.shapes.medium)
-        .border(1.dp, colors.ruleSoft, BloggoTheme.shapes.medium),
-      contentAlignment = Alignment.Center,
-    ) {
-      if (generated) {
-        CoverArt(
-          slug = post.slug,
-          variant = variant,
-          size = CoverArtSize.Hero,
-          palette = CoverArtPalette.of(colors.isDark),
-          modifier = Modifier.fillMaxWidth().aspectRatio(1200f / 630f),
-          contentDescription = "Generated cover for ${post.title}",
-        )
-      } else {
-        Text(
-          "No cover set",
-          style = BloggoTheme.type.cellSubtitle,
-          color = colors.inkFaint,
-        )
-      }
-    }
-
-    Text(
-      if (generated) "$repoPath · 1200×630 · committed with the post"
-      else "Generated from the slug, so it is the same every time",
-      style = BloggoTheme.type.meta,
-      color = colors.inkFaint,
-      modifier = Modifier.padding(top = 8.dp),
-    )
-
-    Row(
-      Modifier.fillMaxWidth().padding(top = 10.dp),
-      horizontalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-      BloggoButton(
-        label = if (generated) "Shuffle" else "Generate",
-        onClick = {
-          if (generated) variant++ else generated = true
-          onCoverGenerated(sitePath)
-        },
-        modifier = Modifier.weight(1f),
-      )
-      BloggoButton("Choose file", {}, tone = ButtonTone.Ghost)
-    }
-  }
-}
-
 @Composable
 private fun SheetField(
   label: String,
@@ -460,16 +323,6 @@ private fun SheetField(
       modifier = Modifier.fillMaxWidth(),
     )
     Box(Modifier.fillMaxWidth().height(1.dp).background(colors.ruleSoft).padding(top = 14.dp))
-  }
-}
-
-@Preview(heightDp = 900)
-@Composable
-private fun PostDetailsPreview() {
-  BloggoTheme {
-    Column(Modifier.background(BloggoTheme.colors.paperRaised).padding(18.dp)) {
-      CoverSection(post = SampleData.draft.copy(cover = null), imagePath = "static/images/", onCoverGenerated = {})
-    }
   }
 }
 

@@ -56,7 +56,7 @@ import com.rrajath.bloggo.model.TootVisibility
  * it rather than just going red.
  *
  * No image is attached. Mastodon builds its preview card from the site's own Open
- * Graph tags, so the generated cover reaches the timeline anyway.
+ * Graph tags, so whatever image the theme sets there reaches the timeline anyway.
  */
 @Composable
 fun MastodonScreen(

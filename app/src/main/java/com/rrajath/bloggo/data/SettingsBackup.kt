@@ -25,12 +25,12 @@ data class SettingsBackup(
   val imagePath: String? = null,
   val hugoConfigFile: String? = null,
   val frontmatterFields: String? = null,
+  /** [FrontmatterType] name. */
+  val frontmatterType: String? = null,
   /** [PublishAction] name. */
   val publishAction: String? = null,
   /** [ThemeMode] name. */
   val themeMode: String? = null,
-  /** [com.rrajath.bloggo.designsystem.component.ArtMode] name. */
-  val artMode: String? = null,
   /** [com.rrajath.bloggo.ui.review.ReadabilityCheck] names that are enabled. */
   val readabilityChecks: List<String>? = null,
 )

@@ -55,7 +55,6 @@ object SampleData {
     markdown = draftMarkdown,
     wordCount = 1204,
     editedAgo = "9m ago",
-    cover = "/images/2026/on-agents-that-actually-ship.png",
   ).withDateFromFrontmatter()
 
   val inReview = Post(

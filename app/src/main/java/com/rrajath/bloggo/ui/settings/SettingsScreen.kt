@@ -49,7 +49,7 @@ private val settingsMenuRows = listOf(
   ),
   SettingsMenuRow(
     SettingsPage.Appearance, "Appearance",
-    "Theme and cover art", BloggoIcons.Sun,
+    "Light, dark, or match your device", BloggoIcons.Sun,
   ),
   SettingsMenuRow(
     SettingsPage.Readability, "Readability Review",

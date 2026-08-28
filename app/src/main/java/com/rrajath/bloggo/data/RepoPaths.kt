@@ -15,9 +15,8 @@ fun resolvePagePath(slug: String): String = "content/$slug.md"
 
 /**
  * The inverse of the site-absolute path Hugo serves an asset at (e.g.
- * `/images/2026/slug.png`, the convention [com.rrajath.bloggo.model.Post.cover]
- * and every `![](...)` figure already use) back to where it actually lives in
- * the repo (`static/images/2026/slug.png`).
+ * `/images/2026/slug.png`, the convention every `![](...)` figure already uses)
+ * back to where it actually lives in the repo (`static/images/2026/slug.png`).
  *
  * Built as `"static/" + sitePath`, not joined against the configured image
  * path specifically — a figure's `src` isn't guaranteed to live under

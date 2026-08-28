@@ -28,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -315,6 +317,7 @@ private fun WashText(
   modifier: Modifier = Modifier,
 ) {
   val colors = BloggoTheme.colors
+  val haptics = LocalHapticFeedback.current
   val hasHighlights = block.wordFlags.isNotEmpty() ||
     block.noteFlags.isNotEmpty() ||
     block.sentences.any { it.flag != null }
@@ -385,7 +388,13 @@ private fun WashText(
           layout?.getOffsetForPosition(position)?.let { offset ->
             annotated.getStringAnnotations(IgnoreTag, offset, offset)
               .minByOrNull { it.end - it.start }
-              ?.let { onRequestIgnore(it.item) }
+              ?.let {
+                // Fire the moment the confirmation dialog is about to open —
+                // detectTapGestures' onLongPress does not buzz on its own the
+                // way combinedClickable would.
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onRequestIgnore(it.item)
+              }
           }
         },
       )

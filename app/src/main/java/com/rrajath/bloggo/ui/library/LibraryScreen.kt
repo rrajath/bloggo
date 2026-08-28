@@ -35,7 +35,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.rrajath.bloggo.data.SampleData
 import com.rrajath.bloggo.designsystem.BloggoTheme
-import com.rrajath.bloggo.designsystem.component.ArtMode
 import com.rrajath.bloggo.designsystem.component.Banner
 import com.rrajath.bloggo.designsystem.component.BloggoAppBar
 import com.rrajath.bloggo.designsystem.component.BloggoChip
@@ -77,7 +76,6 @@ fun LibraryScreen(
   onPush: () -> Unit,
   onRefresh: () -> Unit,
   modifier: Modifier = Modifier,
-  artMode: ArtMode = ArtMode.Generated,
   isRefreshing: Boolean = false,
 ) {
   var isSearching by remember { mutableStateOf(false) }
@@ -157,9 +155,7 @@ fun LibraryScreen(
               val snippet = post.matchingSnippet(debouncedQuery)
               PostRow(
                 title = post.title,
-                slug = post.slug,
                 onClick = { openSearchResult(post) },
-                artMode = artMode,
                 chip = { LibrarySearchResultChip(post) },
                 meta = snippet ?: buildString {
                   if (post.date != null) append(post.date) else post.editedAgo?.let { append("edited $it") }
@@ -188,13 +184,11 @@ fun LibraryScreen(
             item {
               HeroCard(
                 title = hero.title,
-                slug = hero.slug,
                 meta = buildString {
                   append("%,d words".format(hero.wordCount))
                   hero.editedAgo?.let { append(" · edited $it") }
                 },
                 onClick = { onOpenDraft(hero) },
-                artMode = artMode,
               )
             }
 
@@ -204,9 +198,7 @@ fun LibraryScreen(
               items(rest, key = { it.slug }) { post ->
                 PostRow(
                   title = post.title,
-                  slug = post.slug,
                   onClick = { onOpenDraft(post) },
-                  artMode = artMode,
                   chip = { BloggoChip("Draft", ChipTone.Draft) },
                   meta = buildString {
                     append("%,d words".format(post.wordCount))
@@ -222,9 +214,7 @@ fun LibraryScreen(
             item {
               PostRow(
                 title = inReview.title,
-                slug = inReview.slug,
                 onClick = { onOpenPost(inReview) },
-                artMode = artMode,
                 chip = {
                   BloggoChip("#${inReview.pullRequest}", ChipTone.PullRequest, icon = BloggoIcons.Branch)
                 },
@@ -237,9 +227,7 @@ fun LibraryScreen(
           items(published, key = { it.slug }) { post ->
             PostRow(
               title = post.title,
-              slug = post.slug,
               onClick = { onOpenPost(post) },
-              artMode = artMode,
               chip = { BloggoChip("Live", ChipTone.Live) },
               meta = "${post.date} · %,d words".format(post.wordCount),
               onOpenLive = { onOpenLive(post) },
@@ -360,26 +348,6 @@ private fun LibraryPreview() {
       onOpenLive = {},
       onPush = {},
       onRefresh = {},
-    )
-  }
-}
-
-@Preview(name = "No cover art", heightDp = 860)
-@Composable
-private fun LibraryNoArtPreview() {
-  BloggoTheme {
-    LibraryScreen(
-      drafts = listOf(SampleData.draft),
-      inReview = SampleData.inReview,
-      published = SampleData.published,
-      queuedCommits = 0,
-      repoSubtitle = "rrajath/blog · main · hugo",
-      onOpenDraft = {},
-      onOpenPost = {},
-      onOpenLive = {},
-      onPush = {},
-      onRefresh = {},
-      artMode = ArtMode.None,
     )
   }
 }

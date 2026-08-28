@@ -35,7 +35,6 @@ data class LocalPostEntity(
   val wordCount: Int,
   val date: String?,
   val dateMillis: Long?,
-  val cover: String?,
   val updatedAt: Long?,
   val editedAgo: String?,
 )

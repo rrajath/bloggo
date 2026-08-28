@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.rrajath.bloggo.designsystem.component.ArtMode
 import com.rrajath.bloggo.ui.review.ReadabilityCheck
 import kotlinx.coroutines.flow.map
 
@@ -17,13 +16,10 @@ enum class ThemeMode {
   }
 }
 
-private fun artModeFromStored(name: String?): ArtMode =
-  ArtMode.entries.find { it.name == name } ?: ArtMode.Generated
-
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
 /**
- * The app's small, typed settings: theme and the Settings screen's cover-art toggle.
+ * The app's small, typed settings: theme mode and the readability check set.
  *
  * Preferences DataStore rather than the Proto DataStore the TDD names, since a
  * couple of enums do not earn a `.proto` schema and codegen step. Revisit if the
@@ -32,23 +28,17 @@ private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 class SettingsRepository(context: Context) {
   private val dataStore = context.settingsDataStore
   private val themeModeKey = stringPreferencesKey("theme_mode")
-  private val artModeKey = stringPreferencesKey("art_mode")
   // A comma-joined list of enabled check names, the same shape as
   // RepoConnection.frontmatterFields. An absent key means every check is on;
   // an empty string means the writer turned all of them off.
   private val readabilityChecksKey = stringPreferencesKey("readability_checks")
 
   val themeMode = dataStore.data.map { prefs -> ThemeMode.fromStored(prefs[themeModeKey]) }
-  val artMode = dataStore.data.map { prefs -> artModeFromStored(prefs[artModeKey]) }
   val readabilityChecks =
     dataStore.data.map { prefs -> ReadabilityCheck.fromStored(prefs[readabilityChecksKey]) }
 
   suspend fun setThemeMode(mode: ThemeMode) {
     dataStore.edit { prefs -> prefs[themeModeKey] = mode.name }
-  }
-
-  suspend fun setArtMode(mode: ArtMode) {
-    dataStore.edit { prefs -> prefs[artModeKey] = mode.name }
   }
 
   suspend fun setReadabilityChecks(checks: Set<ReadabilityCheck>) {

@@ -28,16 +28,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Separate `debug` build variant: debug builds install alongside release as
   their own app (`com.rrajath.bloggo.debug`, "Bloggo Debug", version suffixed
   " (debug)"), with a matching debug copy of the launcher-shortcut config.
+- Repo Settings has a Frontmatter type control (YAML / TOML). New posts and
+  new pages open with the chosen fence style: YAML `---` / `key: value` or
+  TOML `+++` / `key = value`. Existing files are still parsed either way.
+- The Inbox shows a placeholder ("Nothing captured yet") when no fragments
+  have been captured.
 
 ### Changed
 
 - The release build now runs R8 code shrinking and resource shrinking
   (`isMinifyEnabled` / `isShrinkResources`), cutting the release APK from
   roughly 31 MB to about 5 MB. Keep rules added in `app/proguard-rules.pro`.
+- Long-pressing a readability highlight now gives haptic feedback the moment
+  the "ignore" confirmation opens.
+- Library cards and rows are now typography-only: the hero card keeps its
+  amber top rule and inline status chip, list rows gain full text width.
 
 ### Fixed
 
 ### Removed
+
+- Generated cover art, everywhere it appeared: the library hero/thumbnail
+  art, the post-details Cover section, the Appearance "Cover art" toggle, the
+  `cover:` frontmatter field the app read and wrote, and the `cover` column in
+  the post and local-draft caches (Room migration 7 -> 8). The `:coverart`
+  module is kept but is no longer wired into the app.
 
 ## [1.1.0] - 2026-08-28
 

@@ -5,11 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,43 +17,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.rrajath.bloggo.coverart.CoverArt
-import com.rrajath.bloggo.coverart.CoverArtPalette
-import com.rrajath.bloggo.coverart.CoverArtSize
 import com.rrajath.bloggo.designsystem.BloggoTheme
 import com.rrajath.bloggo.designsystem.icon.BloggoIcon
 import com.rrajath.bloggo.designsystem.icon.BloggoIconSize
 import com.rrajath.bloggo.designsystem.icon.BloggoIcons
 
 /**
- * Whether generated cover art is shown at all.
- *
- * The prototype carries both directions behind one switch, and so does the app.
- * Passing this down rather than reading a global keeps previews honest.
- */
-enum class ArtMode { Generated, None }
-
-/**
  * The in-progress card at the top of the library.
  *
- * With [ArtMode.None] the art is replaced by a top rule in amber and the status
- * chip moves inline, which is what the prototype does. Do not simply hide the
- * image: the card loses its top edge and stops reading as the primary object.
+ * Typography carries the hierarchy: a 3 dp amber top rule marks the card as the
+ * primary object and the status chip sits inline above the title.
  */
 @Composable
 fun HeroCard(
   title: String,
-  slug: String,
   meta: String,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  artMode: ArtMode = ArtMode.Generated,
   chipLabel: String = "Draft",
   chipTone: ChipTone = ChipTone.Draft,
 ) {
@@ -68,60 +51,14 @@ fun HeroCard(
       .border(1.dp, colors.ruleSoft, BloggoTheme.shapes.large)
       .clickable(role = Role.Button, onClick = onClick),
   ) {
-    when (artMode) {
-      ArtMode.Generated -> BoxWithConstraints {
-        val artHeight = maxWidth * 9f / 16f
-        Box(Modifier.fillMaxWidth().height(artHeight)) {
-          CoverArt(
-            slug = slug,
-            size = CoverArtSize.Hero,
-            palette = CoverArtPalette.of(colors.isDark),
-            modifier = Modifier.fillMaxWidth().height(artHeight),
-          )
-          // Dissolves the art into the card so the title can sit over it, as in
-          // the prototype's `.hero-art .fade`.
-          Box(
-            Modifier
-              .fillMaxWidth()
-              .height(artHeight)
-              .background(
-                Brush.verticalGradient(
-                  0f to Color.Transparent,
-                  0.32f to colors.paperRaised.copy(alpha = 0.38f),
-                  0.98f to colors.paperRaised,
-                )
-              )
-          )
-          BloggoChip(chipLabel, chipTone, modifier = Modifier.padding(12.dp))
-        }
-
-        // The body overlaps the faded foot of the art by 30dp.
-        Column(
-          Modifier.padding(
-            start = 18.dp,
-            end = 18.dp,
-            top = artHeight - HERO_OVERLAP,
-            bottom = 17.dp,
-          )
-        ) {
-          Text(title, style = BloggoTheme.type.displayHero, color = colors.ink)
-          MetaText(meta, modifier = Modifier.padding(top = 9.dp))
-        }
-      }
-
-      ArtMode.None -> {
-        Box(Modifier.fillMaxWidth().height(3.dp).background(colors.amber))
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 17.dp)) {
-          BloggoChip(chipLabel, chipTone, modifier = Modifier.padding(bottom = 12.dp))
-          Text(title, style = BloggoTheme.type.displayHero, color = colors.ink)
-          MetaText(meta, modifier = Modifier.padding(top = 9.dp))
-        }
-      }
+    Box(Modifier.fillMaxWidth().height(3.dp).background(colors.amber))
+    Column(Modifier.padding(horizontal = 18.dp, vertical = 17.dp)) {
+      BloggoChip(chipLabel, chipTone, modifier = Modifier.padding(bottom = 12.dp))
+      Text(title, style = BloggoTheme.type.displayHero, color = colors.ink)
+      MetaText(meta, modifier = Modifier.padding(top = 9.dp))
     }
   }
 }
-
-private val HERO_OVERLAP = 30.dp
 
 /**
  * A post in a list.
@@ -132,10 +69,8 @@ private val HERO_OVERLAP = 30.dp
 @Composable
 fun PostRow(
   title: String,
-  slug: String,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
-  artMode: ArtMode = ArtMode.Generated,
   chip: (@Composable () -> Unit)? = null,
   meta: String? = null,
   metaHighlightQuery: String? = null,
@@ -150,18 +85,6 @@ fun PostRow(
     horizontalArrangement = Arrangement.spacedBy(14.dp),
     verticalAlignment = Alignment.Top,
   ) {
-    if (artMode == ArtMode.Generated) {
-      CoverArt(
-        slug = slug,
-        size = CoverArtSize.Thumbnail,
-        palette = CoverArtPalette.of(colors.isDark),
-        modifier = Modifier
-          .size(52.dp)
-          .clip(BloggoTheme.shapes.thumbnail)
-          .border(1.dp, colors.ruleSoft, BloggoTheme.shapes.thumbnail),
-      )
-    }
-
     Column(Modifier.weight(1f)) {
       Text(
         title,
@@ -313,14 +236,12 @@ private fun RowsPreview() {
     Column(Modifier.background(BloggoTheme.colors.paper).padding(18.dp)) {
       HeroCard(
         title = "On agents that actually ship",
-        slug = "on-agents-that-actually-ship",
         meta = "1,204 words · edited 9m ago",
         onClick = {},
       )
       Eyebrow("Published")
       PostRow(
         title = "Why I left Obsidian for plain files",
-        slug = "why-i-left-obsidian",
         onClick = {},
         chip = { BloggoChip("Live", ChipTone.Live) },
         meta = "Aug 4 · 840 words",
@@ -353,28 +274,3 @@ private fun RowsPreview() {
   }
 }
 
-@Preview(name = "No cover art", heightDp = 400)
-@Composable
-private fun RowsNoArtPreview() {
-  BloggoTheme {
-    Column(Modifier.background(BloggoTheme.colors.paper).padding(18.dp)) {
-      HeroCard(
-        title = "On agents that actually ship",
-        slug = "on-agents-that-actually-ship",
-        meta = "1,204 words · edited 9m ago",
-        onClick = {},
-        artMode = ArtMode.None,
-      )
-      Eyebrow("Published")
-      PostRow(
-        title = "Why I left Obsidian for plain files",
-        slug = "why-i-left-obsidian",
-        onClick = {},
-        artMode = ArtMode.None,
-        chip = { BloggoChip("Live", ChipTone.Live) },
-        meta = "Aug 4 · 840 words",
-        onOpenLive = {},
-      )
-    }
-  }
-}

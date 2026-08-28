@@ -1,8 +1,8 @@
 # Bloggo
 
 A phone-first writing studio for a git-backed Hugo blog. Draft a post on a train
-with no signal, generate a cover for it, and have it land on `main` the moment
-you get reception, with no laptop involved.
+with no signal and have it land on `main` the moment you get reception, with no
+laptop involved.
 
 This repository holds the design work and the Android foundation for that app.
 
@@ -23,7 +23,7 @@ surface in front of it.
 |---|---|
 | `app/` | The Android application: navigation shell, screens, and the data layer that talks to GitHub. |
 | `designsystem/` | Compose theme, typography, bundled fonts, shared components, and the markdown editor transformation. |
-| `coverart/` | The deterministic cover-art generator, seeded from the post slug. |
+| `coverart/` | A standalone deterministic image generator seeded from a slug. No longer wired into the app; `designsystem/` still uses its `MulberryRng` for the paper grain. |
 | `internal/design/bloggo-prototype.html` | The interactive UI prototype. One file, no build step. Open it in a browser, or on a phone, where the device frame drops away. |
 | `internal/docs/DESIGN_SYSTEM.md` | Tokens, typography, icons, components. Read before touching any UI. |
 | `internal/docs/ANDROID_TDD.md` | Technical design for building the app: GitHub layer, offline outbox, auth, milestones, risks. |
@@ -32,7 +32,8 @@ surface in front of it.
 | `.github/workflows/build.yml` | CI: builds and tests on every push and PR; a `v*.*.*` tag also builds a signed release APK and cuts a GitHub Release. |
 | `CHANGELOG.md` | Keep a Changelog history. Add entries under `## [Unreleased]` as you work. |
 
-The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:coverart`.
+The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:coverart`
+(`:app` reaches `:coverart` only transitively now).
 
 ## Features
 
@@ -42,8 +43,8 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
   published
 - Markdown editor showing real source with live styling, dimmed syntax markers
 - Read mode rendered with the site's typography, including Hugo shortcodes
-- Frontmatter editing sourced from `archetypes/default.md` and `hugo.toml`
-- Generated cover art, seeded from the post slug so it is stable forever
+- Frontmatter editing sourced from `archetypes/default.md` and `hugo.toml`,
+  with a YAML / TOML fence-style choice for new posts and pages
 - Commit straight to the configured branch through the real Git Data API —
   message, file list, one commit for the post and any images it references.
   Opening a pull request instead, a line-level diff, and an offline queue are
@@ -86,7 +87,8 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
   readability, import/export), with the app version shown in a footer
 - Settings import/export to a JSON file — everything except the access token,
   so a connection can be moved between devices
-- Cover art can be switched off entirely, and the layouts hold up without it
+- Inbox for catching a thought quickly, with a placeholder before anything is
+  captured
 - Light and dark, both complete palettes
 
 **Deferred**
@@ -179,12 +181,9 @@ node tools/genicons.js    # write BloggoIcons.kt
 
 The prototype is the reference. The design system is the prototype's tokens made
 into Kotlin. The Android scaffold is those components assembled into screens. When
-they disagree, the prototype is right.
-
-The cover art generator is the exception worth knowing about: it is a port of the
-prototype's `paint()` verified against the JavaScript original's own output, so a
-given post slug produces a byte-identical picture on both platforms. See
-`internal/docs/DESIGN_SYSTEM.md` §8.
+they disagree, the prototype is right — with a few deliberate divergences noted in
+`internal/docs/DESIGN_SYSTEM.md`, the largest being that generated cover art has
+been dropped from the app (the `:coverart` module is kept but unwired; see §8).
 
 ## Status
 

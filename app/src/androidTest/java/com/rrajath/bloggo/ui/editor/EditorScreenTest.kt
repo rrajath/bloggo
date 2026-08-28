@@ -44,7 +44,6 @@ class EditorScreenTest {
       BloggoTheme {
         EditorScreen(
           post = post,
-          imagePath = "static/images/",
           tagPool = emptyList(),
           connection = RepoConnection(),
           remoteSlugs = emptySet(),
@@ -58,7 +57,6 @@ class EditorScreenTest {
           onFocus = {},
           onReview = {},
           onToast = {},
-          onCoverGenerated = {},
           onDeletePost = {},
           onMoveToInbox = {},
           onPublish = { _, _ -> },

@@ -150,7 +150,6 @@ private fun capitalizeHeadingFirstLetter(old: TextFieldValue, new: TextFieldValu
 @Composable
 fun EditorScreen(
   post: Post,
-  imagePath: String,
   tagPool: List<String>,
   connection: RepoConnection,
   /** [post.slug]'s already-pushed check ([com.rrajath.bloggo.model.isPushed]) —
@@ -180,7 +179,6 @@ fun EditorScreen(
   onFocus: () -> Unit,
   onReview: () -> Unit,
   onToast: (String) -> Unit,
-  onCoverGenerated: (String) -> Unit,
   onDeletePost: () -> Unit,
   onMoveToInbox: () -> Unit,
   onPromoteToPost: () -> Unit = {},
@@ -371,7 +369,6 @@ fun EditorScreen(
   if (showDetails) {
     PostDetailsSheet(
       post = post,
-      imagePath = imagePath,
       tagPool = tagPool,
       isPushed = post.isPushed(remoteSlugs),
       isFragmentPreview = isFragmentPreview,
@@ -391,7 +388,6 @@ fun EditorScreen(
         onMarkdownChange(edited, counted)
         onToast(if (post.kind == DocKind.Page) "Page details updated" else "Frontmatter updated")
       },
-      onCoverGenerated = onCoverGenerated,
       onDelete = {
         showDetails = false
         onDeletePost()
@@ -521,7 +517,6 @@ private fun EditorPreview() {
   BloggoTheme {
     EditorScreen(
       post = SampleData.draft,
-      imagePath = "static/images/",
       tagPool = listOf("ai", "tooling", "craft"),
       connection = RepoConnection(),
       remoteSlugs = emptySet(),
@@ -535,7 +530,6 @@ private fun EditorPreview() {
       onFocus = {},
       onReview = {},
       onToast = {},
-      onCoverGenerated = {},
       onDeletePost = {},
       onMoveToInbox = {},
       onPublish = { _, _ -> },

@@ -82,7 +82,6 @@ class PostLibraryRepositoryTest {
     assertEquals("A post", post.title)
     assertEquals("Aug 4, 2026", post.date)
     assertEquals(PostState.Published, post.state)
-    assertEquals("/images/2026/a.png", post.cover)
   }
 
   @Test

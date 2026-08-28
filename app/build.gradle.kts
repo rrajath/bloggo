@@ -157,5 +157,4 @@ dependencies {
 
   // Bloggo modules
   implementation(project(":designsystem"))
-  implementation(project(":coverart"))
 }
