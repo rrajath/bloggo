@@ -7,6 +7,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.2.0] - 2026-08-28
+
+### Added
+
 - Settings is now a menu of six sub-pages (GitHub Connection, Repo Settings,
   Publishing, Appearance, Readability Review, Import / Export), each with a
   one-line description on the menu row.
