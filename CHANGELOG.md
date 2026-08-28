@@ -7,6 +7,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.1.0] - 2026-08-28
+
+### Added
+
 - Readability review screen: surfaces readability findings on a draft, lets the
   writer ignore individual findings per post, and recomputes on demand.
 - Hand-managed release versioning: `bloggo.versionName` in `gradle.properties`
