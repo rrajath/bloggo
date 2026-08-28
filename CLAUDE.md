@@ -91,6 +91,10 @@ When a change is significant, update docs as part of finishing the task, not as 
 
 Update the specific file(s) in `internal/docs/` that are affected, and `README.md` only if setup steps, the feature list, or usage changed. If unsure whether something counts, update the docs anyway.
 
+## Changelog
+
+`CHANGELOG.md` follows Keep a Changelog. Every code change (feature, fix, refactor, dependency bump) adds an entry under `## [Unreleased]` in the same commit as the change, grouped as `### Added` / `### Changed` / `### Fixed` / `### Removed` (omit empty groups). Do not hand-move entries out of `Unreleased` into a versioned section: the `v*.*.*` tag build in `.github/workflows/build.yml` does that move and pushes it back to `main`.
+
 ## Working notes
 
 `internal/PROGRESS.md` and `internal/PERF_IMPROVEMENT.md` are local working notes. `PROGRESS.md` is gitignored.
@@ -99,5 +103,5 @@ Update the specific file(s) in `internal/docs/` that are affected, and `README.m
 
 - **Version:** `versionName` is hand-managed in `gradle.properties` as `bloggo.versionName` (`MAJOR.MINOR.PATCH`). `app/build.gradle.kts` derives `versionCode` as `MAJOR * 10000 + MINOR * 100 + PATCH` (`1.4.3` -> `10403`; `MINOR`/`PATCH` capped at 99) and fails the build on a malformed value. No env vars feed the version.
 - **Signing:** the `release` `signingConfig` reads `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. CI decodes the keystore from the `KEYSTORE_BASE64` secret. With no `KEYSTORE_PATH` the release build stays unsigned (`app-release-unsigned.apk`).
-- **CI** (`.github/workflows/build.yml`): every push to `main` and every PR runs `./gradlew assembleDebug test`. A `v*.*.*` tag push also builds the signed release APK and cuts a GitHub Release (debug + release APKs attached). The tag build fails unless the tag matches `bloggo.versionName`.
+- **CI** (`.github/workflows/build.yml`): every push to `main` and every PR runs `./gradlew assembleDebug test`. A `v*.*.*` tag push also builds the signed release APK, moves `CHANGELOG.md` `[Unreleased]` entries into a dated `[X.Y.Z]` section (committed back to `main`), and cuts a GitHub Release (debug + release APKs attached). The tag build fails unless the tag matches `bloggo.versionName`.
 - **Sentry:** removed. No crash reporting is wired in.

@@ -30,6 +30,7 @@ surface in front of it.
 | `internal/docs/PROTOTYPE_NOTES.md` | Why the prototype is the way it is. |
 | `tools/` | Icon extraction and Kotlin generation from the prototype's SVG. |
 | `.github/workflows/build.yml` | CI: builds and tests on every push and PR; a `v*.*.*` tag also builds a signed release APK and cuts a GitHub Release. |
+| `CHANGELOG.md` | Keep a Changelog history. Add entries under `## [Unreleased]` as you work. |
 
 The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:coverart`.
 
@@ -137,10 +138,14 @@ and `PATCH` are each capped at 99). Bump the property before tagging a release.
 
 - **Every push to `main` and every PR:** assembles the debug APK and runs the
   full unit test suite. No APK is published.
-- **A `v*.*.*` tag push only:** additionally builds a signed release APK and
-  publishes a GitHub Release with the debug and release APKs attached. The job
-  fails if the tag does not match `bloggo.versionName` (tag `v1.4.3` requires
-  `bloggo.versionName=1.4.3`).
+- **A `v*.*.*` tag push only:** additionally builds a signed release APK, moves
+  the `CHANGELOG.md` `[Unreleased]` entries into a dated `[X.Y.Z]` section and
+  commits that back to `main`, and publishes a GitHub Release with the debug and
+  release APKs attached. The job fails if the tag does not match
+  `bloggo.versionName` (tag `v1.4.3` requires `bloggo.versionName=1.4.3`).
+
+Record every change under `## [Unreleased]` in `CHANGELOG.md` as you go; the tag
+build is what promotes those entries into a versioned section.
 
 A local `./gradlew assembleRelease` produces an unsigned APK unless the signing
 variables are set: `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`,
