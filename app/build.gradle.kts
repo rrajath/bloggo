@@ -32,6 +32,9 @@ android {
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
+        // app_name lives here (not strings.xml) so the debug build type can
+        // override it per-variant without a duplicate-resource clash.
+        resValue("string", "app_name", "Bloggo")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -50,6 +53,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug builds install alongside release: distinct package, distinct
+            // launcher name, version tagged so it is obvious which build is running.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = " (debug)"
+            resValue("string", "app_name", "Bloggo Debug")
+            isDebuggable = true
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -68,6 +79,7 @@ android {
       aidl = false
       buildConfig = false
       shaders = false
+      resValues = true // per-variant app_name override (debug build type)
     }
 
     packaging {

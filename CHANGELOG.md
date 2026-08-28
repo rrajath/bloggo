@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Separate `debug` build variant: debug builds install alongside release as
+  their own app (`com.rrajath.bloggo.debug`, "Bloggo Debug", version suffixed
+  " (debug)"), with a matching debug copy of the launcher-shortcut config.
+
 ### Changed
 
 - The release build now runs R8 code shrinking and resource shrinking

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-variant copy of res/xml/shortcuts.xml. Identical to the main version
+  except android:targetPackage carries the ".debug" applicationIdSuffix, so the
+  static "Capture a thought" launcher shortcut resolves against the debug app.
+  AGP does not substitute ${applicationId} inside res/xml, hence the duplicate
+  file rather than a placeholder. Keep this in sync with the main shortcuts.xml.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="capture_a_thought"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_capture"
+        android:shortcutShortLabel="@string/shortcut_capture_short_label"
+        android:shortcutLongLabel="@string/shortcut_capture_long_label">
+        <intent
+            android:action="com.rrajath.bloggo.action.CAPTURE_THOUGHT"
+            android:targetPackage="com.rrajath.bloggo.debug"
+            android:targetClass="com.rrajath.bloggo.MainActivity" />
+    </shortcut>
+</shortcuts>
