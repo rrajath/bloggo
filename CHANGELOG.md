@@ -9,6 +9,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The release build now runs R8 code shrinking and resource shrinking
+  (`isMinifyEnabled` / `isShrinkResources`), cutting the release APK from
+  roughly 31 MB to about 5 MB. Keep rules added in `app/proguard-rules.pro`.
+
 ### Fixed
 
 ### Removed

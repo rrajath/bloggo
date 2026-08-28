@@ -151,6 +151,11 @@ A local `./gradlew assembleRelease` produces an unsigned APK unless the signing
 variables are set: `KEYSTORE_PATH`, `KEY_STORE_PASSWORD`, `KEY_ALIAS`,
 `KEY_PASSWORD`. CI decodes the keystore from the `KEYSTORE_BASE64` secret.
 
+The release build runs R8 (code and resource shrinking); the debug build does
+not. Keep rules are in `app/proguard-rules.pro`. After changing dependencies or
+the GitHub API DTOs, smoke-test a release APK, since a serialization or
+reflection break only shows up in the minified build.
+
 ### Regenerating the icon set
 
 Icons are generated from the prototype's inline SVG so they cannot drift. After
