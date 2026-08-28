@@ -113,28 +113,14 @@ fun SettingsConnectionScreen(
 @Composable
 fun SettingsRepoScreen(
   connection: RepoConnection,
-  checkResult: ConnectionCheck?,
-  onSaveHugoConfigFile: (String) -> Unit,
   onSavePostPath: (String) -> Unit,
   onSaveImagePath: (String) -> Unit,
   onSaveFrontmatterFields: (String) -> Unit,
   onSaveFrontmatterType: (FrontmatterType) -> Unit,
   onBack: () -> Unit,
 ) {
-  val framework = when {
-    checkResult is ConnectionCheck.Connected && checkResult.hugoDetected -> "Hugo"
-    checkResult is ConnectionCheck.Connected -> "Not detected"
-    else -> "Hugo"
-  }
   SettingsDetailScaffold("Repo Settings", onBack) {
     CellGroup(Modifier.padding(top = 4.dp)) {
-      ToggleEditableCell(
-        icon = BloggoIcons.Framework,
-        title = framework,
-        value = connection.hugoConfigFile,
-        buttonLabel = "Change",
-        onSave = onSaveHugoConfigFile,
-      )
       EditableCell(
         icon = BloggoIcons.File,
         title = "Post path",
@@ -342,8 +328,8 @@ fun SettingsImportExportScreen(
 
 /**
  * Paste a token, name the repo, save. Saving triggers a real
- * `GET /repos/{o}/{r}` validation and a Hugo detection check, per
- * ANDROID_TDD.md §7.1 — [ConnectionStatus] shows what came back.
+ * `GET /repos/{o}/{r}` validation, per ANDROID_TDD.md §7.1 —
+ * [ConnectionStatus] shows what came back.
  *
  * The PAT field is seeded from [storedToken] rather than left blank: a saved
  * token that vanishes from the screen the moment you save it is
@@ -446,8 +432,7 @@ private fun ConnectionStatus(
 
     checkResult is ConnectionCheck.Connected -> Banner(
       text = "Connected · ${checkResult.defaultBranch} · " +
-        (if (checkResult.isPrivate) "private" else "public") + " · " +
-        (if (checkResult.hugoDetected) "Hugo detected" else "no Hugo config found at the root"),
+        (if (checkResult.isPrivate) "private" else "public"),
       icon = BloggoIcons.Check,
       modifier = modifier.padding(top = 12.dp),
     )

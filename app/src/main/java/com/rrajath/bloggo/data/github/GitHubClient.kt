@@ -20,13 +20,7 @@ sealed interface ConnectionCheck {
   data class Connected(
     val defaultBranch: String,
     val isPrivate: Boolean,
-    /** Which config candidate was found (`hugo.toml`, `config.yaml`, ...), or
-     * null if none was — the Settings screen shows the real file name rather than
-     * just a yes/no. */
-    val hugoConfigFile: String?,
-  ) : ConnectionCheck {
-    val hugoDetected: Boolean get() = hugoConfigFile != null
-  }
+  ) : ConnectionCheck
 
   /** 401, or 403 that isn't a rate limit: the token is missing, expired, or wrong. */
   data object Unauthorized : ConnectionCheck
@@ -138,17 +132,12 @@ private fun parseOwnerRepo(repository: String): Pair<String, String>? {
 private const val POSTS_PATH = "content/posts/"
 private const val CONTENT_PATH = "content/"
 
-private val HUGO_CONFIG_CANDIDATES = listOf(
-  "hugo.toml", "hugo.yaml", "hugo.yml", "hugo.json",
-  "config.toml", "config.yaml", "config.yml", "config.json",
-)
-
 private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "svg")
 
 /**
  * The GitHub half of ANDROID_TDD.md §5. Deliberately small: one call to
- * validate the token and repo (§7.1), one root listing to find the Hugo config
- * (§5.1 framework detection), one recursive tree call for the library (§5.2).
+ * validate the token and repo (§7.1), one recursive tree call for the library
+ * (§5.2).
  *
  * The tree call is conditional — pass the previous response's ETag and an
  * unchanged repo answers 304 for free. The caller owns that ETag, since it also
@@ -181,11 +170,9 @@ class GitHubClient(baseUrl: String = "https://api.github.com/") {
         val response = api.getRepo(authorization, owner, repo)
         if (response.isSuccessful) {
           val body = response.body() ?: return@withContext ConnectionCheck.Unknown(response.code())
-          val hugoConfigFile = detectHugo(authorization, owner, repo, body.defaultBranch)
           return@withContext ConnectionCheck.Connected(
             defaultBranch = body.defaultBranch,
             isPrivate = body.private,
-            hugoConfigFile = hugoConfigFile,
           )
         }
         when (classifyHttpError(response.code(), response.headers()["x-ratelimit-remaining"])) {
@@ -204,30 +191,6 @@ class GitHubClient(baseUrl: String = "https://api.github.com/") {
         ConnectionCheck.NoNetwork
       }
     }
-
-  /**
-   * Hugo's config file has had several valid names since `hugo.toml` became the
-   * preferred one: `config.toml` is what most existing sites still carry, and
-   * `.yaml`/`.json` are equally valid for either. Reporting "no hugo.toml found"
-   * when a site uses `config.toml` was a real false negative, not a nitpick.
-   *
-   * One listing of the repo root, then an intersection with the candidates in
-   * their declared precedence order. Probing candidate by candidate cost one
-   * round trip and one rate-limit unit per miss — up to eight of each, and worst
-   * exactly when the answer was "no Hugo config here", which is the case a
-   * writer is most likely to retry.
-   */
-  private suspend fun detectHugo(authorization: String?, owner: String, repo: String, branch: String): String? = try {
-    val response = api.listRoot(authorization, owner, repo, branch)
-    if (response.isSuccessful) {
-      val names = response.body().orEmpty().filter { it.type == "file" }.mapTo(mutableSetOf()) { it.name }
-      HUGO_CONFIG_CANDIDATES.firstOrNull { it in names }
-    } else {
-      null
-    }
-  } catch (e: IOException) {
-    null
-  }
 
   /**
    * ANDROID_TDD.md §5.2: one recursive tree call lists every path and blob SHA,

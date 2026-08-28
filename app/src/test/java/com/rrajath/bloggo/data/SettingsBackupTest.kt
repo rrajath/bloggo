@@ -19,7 +19,6 @@ class SettingsBackupTest {
       authorName = "Rajath",
       postPath = "content/posts/{slug}.md",
       imagePath = "static/images/",
-      hugoConfigFile = "hugo.toml",
       frontmatterFields = "title, date, tags",
       frontmatterType = FrontmatterType.Toml.name,
       publishAction = PublishAction.OpenPullRequest.name,

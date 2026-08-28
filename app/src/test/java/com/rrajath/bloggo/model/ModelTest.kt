@@ -263,6 +263,31 @@ class ModelTest {
   }
 
   @Test
+  fun `withUpdatedDraft flips a YAML draft flag to false in place`() {
+    val markdown = "---\ntitle: A post\ndraft: true\ntags: [craft]\n---\n\nBody."
+
+    val result = markdown.withUpdatedDraft(false)
+
+    assertEquals("---\ntitle: A post\ndraft: false\ntags: [craft]\n---\n\nBody.", result)
+  }
+
+  @Test
+  fun `withUpdatedDraft flips a TOML draft flag bare, no quotes`() {
+    val markdown = "+++\ntitle = \"A post\"\ndraft = true\n+++\n\nBody."
+
+    val result = markdown.withUpdatedDraft(false)
+
+    assertEquals("+++\ntitle = \"A post\"\ndraft = false\n+++\n\nBody.", result)
+  }
+
+  @Test
+  fun `withUpdatedDraft is a no-op when the frontmatter has no draft field`() {
+    val markdown = "---\ntitle: A post\n---\n\nBody."
+
+    assertEquals(markdown, markdown.withUpdatedDraft(false))
+  }
+
+  @Test
   fun `effectiveDate prefers date when both date and lastmod are present`() {
     val frontmatter = mapOf("date" to "2026-07-16T19:21:00-07:00", "lastmod" to "2026-07-16T19:25:04-07:00")
     assertEquals("2026-07-16T19:21:00-07:00", frontmatter.effectiveDate())

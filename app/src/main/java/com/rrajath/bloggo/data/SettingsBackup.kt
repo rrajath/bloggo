@@ -23,7 +23,6 @@ data class SettingsBackup(
   val authorName: String? = null,
   val postPath: String? = null,
   val imagePath: String? = null,
-  val hugoConfigFile: String? = null,
   val frontmatterFields: String? = null,
   /** [FrontmatterType] name. */
   val frontmatterType: String? = null,

@@ -123,5 +123,38 @@ sealed interface MarkdownAction {
 
     fun figure(path: String, caption: String) =
       AppendBlock("{{< figure src=\"$path\" caption=\"$caption\" >}}")
+
+    /** The literal scheme [Link] prefills into `]( … )` and lands the caret after. */
+    const val LINK_URL_PREFILL = LINK_URL_PLACEHOLDER
   }
+}
+
+/**
+ * [MarkdownAction.Link] wraps a selection as `[text](https://)` and leaves the
+ * caret right after the prefilled `https://`, ready for the URL to be typed or
+ * pasted. If what gets pasted there already carries its own `http://` or
+ * `https://`, the two stack up as `https://https://example.com`. When
+ * [prefillEnd] marks the end of that prefilled scheme and [new] is an insertion
+ * starting exactly there whose text begins with a scheme, drop the prefill so
+ * the pasted URL stands alone. Any other edit is returned untouched.
+ */
+fun dedupePastedLinkScheme(old: TextFieldValue, new: TextFieldValue, prefillEnd: Int): TextFieldValue {
+  val prefill = MarkdownAction.LINK_URL_PREFILL
+  val oldText = old.text
+  val newText = new.text
+  if (newText.length <= oldText.length) return new
+  if (prefillEnd < prefill.length || prefillEnd > oldText.length) return new
+  // The characters just before prefillEnd must be the prefill this is meant to undo.
+  if (!oldText.regionMatches(prefillEnd - prefill.length, prefill, 0, prefill.length)) return new
+  // The edit must be a pure insertion that begins exactly at prefillEnd.
+  val tail = oldText.length - prefillEnd
+  if (!newText.regionMatches(0, oldText, 0, prefillEnd)) return new
+  if (!newText.regionMatches(newText.length - tail, oldText, prefillEnd, tail)) return new
+  val inserted = newText.substring(prefillEnd, newText.length - tail)
+  val lower = inserted.lowercase()
+  if (!lower.startsWith("https://") && !lower.startsWith("http://")) return new
+  val cutStart = prefillEnd - prefill.length
+  val rewritten = newText.substring(0, cutStart) + newText.substring(prefillEnd)
+  val caret = (new.selection.max - prefill.length).coerceAtLeast(cutStart)
+  return TextFieldValue(rewritten, TextRange(caret))
 }

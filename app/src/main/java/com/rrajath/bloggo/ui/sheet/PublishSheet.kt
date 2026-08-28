@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,7 +70,7 @@ fun PublishSheet(
   isPublishing: Boolean,
   publishResult: PublishResult?,
   onDismiss: () -> Unit,
-  onPublish: (message: String, date: String) -> Unit,
+  onPublish: (message: String, date: String, setDraftFalse: Boolean) -> Unit,
 ) {
   val colors = BloggoTheme.colors
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -82,9 +84,17 @@ fun PublishSheet(
     }
   }
   var message by remember(post.slug) { mutableStateOf(defaultMessage) }
-  val path = remember(post.repoPath, connection.postPath, post.slug, post.kind) {
-    post.repoPath ?: if (post.kind == DocKind.Page) resolvePagePath(post.slug) else resolvePostPath(connection.postPath, post.slug)
+  // publicSlug, not slug: the file committed to the repo is named after the
+  // frontmatter `slug:` (what PostPublishRepository actually writes), so a slug
+  // edited in the editor has to show up here too. Already-committed posts keep
+  // their original filename via post.repoPath.
+  val path = remember(post.repoPath, connection.postPath, post.publicSlug, post.kind) {
+    post.repoPath ?: if (post.kind == DocKind.Page) resolvePagePath(post.publicSlug) else resolvePostPath(connection.postPath, post.publicSlug)
   }
+  val isStillDraft = remember(post.markdown) {
+    post.markdown.parseFrontmatter()["draft"].equals("true", ignoreCase = true)
+  }
+  var showDraftPrompt by remember(post.slug) { mutableStateOf(false) }
 
   // Drafts can take multiple days to finish, so the frontmatter `date:` may
   // not already be today — the toggle defaults on (the common case, finishing
@@ -95,6 +105,14 @@ fun PublishSheet(
     mutableStateOf(post.markdown.parseFrontmatter().effectiveDate().orEmpty())
   }
   fun resolvedDate() = if (setDateToToday) currentFrontmatterTimestamp() else dateText.trim()
+
+  fun submitPublish(setDraftFalse: Boolean) = onPublish(message, resolvedDate(), setDraftFalse)
+  // A post still carrying `draft: true` gets one question first — flip the flag,
+  // or publish it as a draft on purpose. Anything already `draft: false` (or with
+  // no draft flag) publishes straight away.
+  fun requestPublish() {
+    if (isStillDraft) showDraftPrompt = true else submitPublish(false)
+  }
 
   // Same hide-then-callback shape PostDetailsSheet already uses: dismissing
   // straight through `onDismiss` would skip ModalBottomSheet's own close
@@ -150,7 +168,7 @@ fun PublishSheet(
           text = "Couldn't publish: ${publishResult.error.describe()}",
           tone = BannerTone.Warning,
           actionLabel = "Retry",
-          onAction = { onPublish(message, resolvedDate()) },
+          onAction = { requestPublish() },
           modifier = Modifier.padding(top = 14.dp),
         )
       }
@@ -165,12 +183,41 @@ fun PublishSheet(
         BloggoButton("Later", { dismiss(onDismiss) }, tone = ButtonTone.Ghost, enabled = !isPublishing)
         BloggoButton(
           "Publish",
-          { onPublish(message, resolvedDate()) },
+          { requestPublish() },
           modifier = Modifier.weight(1f),
           enabled = !isPublishing,
         )
       }
     }
+  }
+
+  if (showDraftPrompt) {
+    AlertDialog(
+      onDismissRequest = { showDraftPrompt = false },
+      containerColor = colors.paperRaised,
+      titleContentColor = colors.ink,
+      textContentColor = colors.inkMuted,
+      title = { Text("This post is still a draft", style = BloggoTheme.type.displaySmall) },
+      text = {
+        Text("Set draft to false in the frontmatter before publishing? Choose No to publish it with draft: true left as is.")
+      },
+      confirmButton = {
+        TextButton(onClick = {
+          showDraftPrompt = false
+          submitPublish(true)
+        }) {
+          Text("Yes", style = BloggoTheme.type.button, color = colors.accent)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = {
+          showDraftPrompt = false
+          submitPublish(false)
+        }) {
+          Text("No", style = BloggoTheme.type.button, color = colors.inkMuted)
+        }
+      },
+    )
   }
 }
 

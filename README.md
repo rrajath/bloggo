@@ -43,8 +43,8 @@ The Gradle modules depend in one direction: `:app` -> `:designsystem` -> `:cover
   published
 - Markdown editor showing real source with live styling, dimmed syntax markers
 - Read mode rendered with the site's typography, including Hugo shortcodes
-- Frontmatter editing sourced from `archetypes/default.md` and `hugo.toml`,
-  with a YAML / TOML fence-style choice for new posts and pages
+- Frontmatter editing with an editable field list in Repo Settings and a
+  YAML / TOML fence-style choice for new posts and pages
 - Commit straight to the configured branch through the real Git Data API —
   message, file list, one commit for the post and any images it references.
   Opening a pull request instead, a line-level diff, and an offline queue are
@@ -188,7 +188,7 @@ been dropped from the app (the `:coverart` module is kept but unwired; see §8).
 ## Status
 
 The prototype is complete. The Android project builds, runs, and talks to a real
-connected GitHub repository: validating the connection and detecting Hugo,
+connected GitHub repository: validating the connection,
 listing and caching posts and images, and committing a post (with any images it
 references) straight to the configured branch through the Git Data API. 206
 unit tests across `:app`, `:coverart`, and `:designsystem`.

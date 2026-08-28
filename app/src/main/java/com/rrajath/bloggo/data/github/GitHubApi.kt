@@ -105,26 +105,6 @@ interface GitHubApi {
     @Path("repo") repo: String,
   ): Response<GitHubRepoDto>
 
-  /** Used for Hugo detection: does `hugo.toml` exist at the repo root. */
-  @GET("repos/{owner}/{repo}/contents/{path}")
-  suspend fun getContents(
-    @Header("Authorization") authorization: String?,
-    @Path("owner") owner: String,
-    @Path("repo") repo: String,
-    @Path("path") path: String,
-    @Query("ref") ref: String?,
-  ): Response<ResponseBody>
-
-  /** The repo root's directory listing. One call answers "which Hugo config does
-   * this repo have", where asking per candidate cost up to eight. */
-  @GET("repos/{owner}/{repo}/contents")
-  suspend fun listRoot(
-    @Header("Authorization") authorization: String?,
-    @Path("owner") owner: String,
-    @Path("repo") repo: String,
-    @Query("ref") ref: String?,
-  ): Response<List<GitHubContentEntryDto>>
-
   /** ANDROID_TDD.md §5.2: one recursive tree call lists every path and blob SHA.
    * [ifNoneMatch] carries the previous response's ETag, so an unchanged repo
    * answers 304 without re-sending the whole tree or spending a rate-limit unit. */

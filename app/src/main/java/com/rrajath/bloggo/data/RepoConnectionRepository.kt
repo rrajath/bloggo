@@ -53,9 +53,6 @@ data class RepoConnection(
   val postPath: String = "content/posts/{slug}.md",
   /** Where an uploaded image is written, repo-relative. */
   val imagePath: String = "static/images/",
-  /** The Hugo config filename the app treats as canonical. Corrects what
-   * detection found, or stands in for it before a connection exists. */
-  val hugoConfigFile: String = "config.toml",
   /** Comma-separated frontmatter field names a new post is seeded with. */
   val frontmatterFields: String = "title, date, tags, slug, draft",
   /** Fence style a newly created post or page opens with. */
@@ -84,8 +81,8 @@ private val Context.repoConnectionDataStore by preferencesDataStore(name = "repo
 /**
  * Stores the fine-grained PAT and the repo it unlocks.
  *
- * This is storage only: no `GET /repos/{o}/{r}` call, no Hugo detection. Those
- * are the rest of ANDROID_TDD.md §7.1 and land with the GitHub client.
+ * This is storage only: no `GET /repos/{o}/{r}` call. That is the rest of
+ * ANDROID_TDD.md §7.1 and lands with the GitHub client.
  *
  * The token lives only in [EncryptedSharedPreferences], Keystore-backed, per
  * §7.3 — never in DataStore, never in Room, never logged. `hasToken` is a
@@ -102,7 +99,6 @@ class RepoConnectionRepository(private val context: Context) {
   private val authorNameKey = stringPreferencesKey("author_name")
   private val postPathKey = stringPreferencesKey("post_path")
   private val imagePathKey = stringPreferencesKey("image_path")
-  private val hugoConfigFileKey = stringPreferencesKey("hugo_config_file")
   private val frontmatterFieldsKey = stringPreferencesKey("frontmatter_fields")
   private val frontmatterTypeKey = stringPreferencesKey("frontmatter_type")
   private val publishActionKey = stringPreferencesKey("publish_action")
@@ -133,7 +129,6 @@ class RepoConnectionRepository(private val context: Context) {
       authorName = prefs[authorNameKey].orEmpty(),
       postPath = prefs[postPathKey]?.takeIf { it.isNotBlank() } ?: "content/posts/{slug}.md",
       imagePath = prefs[imagePathKey]?.takeIf { it.isNotBlank() } ?: "static/images/",
-      hugoConfigFile = prefs[hugoConfigFileKey]?.takeIf { it.isNotBlank() } ?: "config.toml",
       frontmatterFields = prefs[frontmatterFieldsKey]?.takeIf { it.isNotBlank() } ?: "title, date, tags, slug, draft",
       frontmatterType = prefs[frontmatterTypeKey]?.let { saved ->
         runCatching { FrontmatterType.valueOf(saved) }.getOrNull()
@@ -159,10 +154,6 @@ class RepoConnectionRepository(private val context: Context) {
 
   suspend fun setImagePath(path: String) {
     context.repoConnectionDataStore.edit { prefs -> prefs[imagePathKey] = path.trim() }
-  }
-
-  suspend fun setHugoConfigFile(file: String) {
-    context.repoConnectionDataStore.edit { prefs -> prefs[hugoConfigFileKey] = file.trim() }
   }
 
   suspend fun setFrontmatterFields(fields: String) {

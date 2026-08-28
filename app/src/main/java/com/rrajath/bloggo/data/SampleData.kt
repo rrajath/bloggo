@@ -309,8 +309,6 @@ object SampleData {
   // Illustrative only, shown before a real connection exists — the Settings screen's
   // GitHub connection section and its own defaults now own the rest of what
   // `RepoConfig` used to describe.
-  val sampleRepository = "rrajath/blog"
-  val sampleBranch = "main"
   val sampleSiteHost = "rrajath.dev"
 
   val defaultToot = """

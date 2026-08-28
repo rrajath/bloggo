@@ -30,71 +30,16 @@ class GitHubClientTest {
     .body("""{"full_name":"o/r","default_branch":"$defaultBranch","private":$private}""")
     .build()
 
-  /** The repo root listing Hugo detection reads, as a single call. */
-  private fun rootListing(vararg names: String) = MockResponse.Builder()
-    .code(200)
-    .body("[${names.joinToString(",") { """{"name":"$it","path":"$it","sha":"sha-$it","type":"file"}""" }}]")
-    .build()
-
   @Test
-  fun `connected with hugo detected`() = runTest {
-    server.enqueue(repoResponse())
-    server.enqueue(rootListing("hugo.toml", "content", "README.md"))
+  fun `connected reports the default branch and visibility in one call`() = runTest {
+    server.enqueue(repoResponse(defaultBranch = "main", private = true))
 
     val result = client.checkConnection("o/r", "main", token = "t")
 
     val connected = result as ConnectionCheck.Connected
     assertEquals("main", connected.defaultBranch)
-    assertTrue(connected.hugoDetected)
-    assertEquals(false, connected.isPrivate)
-  }
-
-  @Test
-  fun `connected without hugo detected`() = runTest {
-    server.enqueue(repoResponse())
-    server.enqueue(rootListing("README.md", "content")) // no config candidate in the root
-
-    val result = client.checkConnection("o/r", "main", token = "t") as ConnectionCheck.Connected
-
-    assertTrue(!result.hugoDetected)
-  }
-
-  @Test
-  fun `hugo detected via config toml, not just hugo toml`() = runTest {
-    // Regression: sites that predate hugo.toml becoming the preferred name still
-    // carry config.toml, and detection was reporting them as "no hugo.toml
-    // found" even though the site is a real, working Hugo site.
-    server.enqueue(repoResponse())
-    server.enqueue(rootListing("config.toml", "content"))
-
-    val result = client.checkConnection("o/r", "main", token = "t") as ConnectionCheck.Connected
-
-    assertTrue(result.hugoDetected)
-    assertEquals("config.toml", result.hugoConfigFile)
-  }
-
-  @Test
-  fun `hugo toml wins over config toml when a repo carries both`() = runTest {
-    server.enqueue(repoResponse())
-    server.enqueue(rootListing("config.toml", "hugo.toml"))
-
-    val result = client.checkConnection("o/r", "main", token = "t") as ConnectionCheck.Connected
-
-    assertEquals("hugo.toml", result.hugoConfigFile)
-  }
-
-  @Test
-  fun `hugo detection costs one call whatever the answer is`() = runTest {
-    // Regression: probing the eight config candidates one at a time meant a repo
-    // with no Hugo config at all spent eight round trips and eight rate-limit
-    // units to answer "no" — the slowest case being the one users retry.
-    server.enqueue(repoResponse())
-    server.enqueue(rootListing("README.md"))
-
-    val result = client.checkConnection("o/r", "main", token = "t") as ConnectionCheck.Connected
-
-    assertTrue(!result.hugoDetected)
-    assertEquals(2, server.requestCount) // getRepo + one root listing
+    assertTrue(connected.isPrivate)
+    assertEquals(1, server.requestCount) // getRepo only — no root listing
   }
 
   @Test
@@ -161,7 +106,6 @@ class GitHubClientTest {
     // IllegalArgumentException ("Unexpected char 0x0a ... in Authorization
     // value") the first time a real pasted-from-clipboard token was used.
     server.enqueue(repoResponse())
-    server.enqueue(MockResponse.Builder().code(404).build())
 
     client.checkConnection("o/r", "main", token = "t\n")
 
@@ -172,7 +116,6 @@ class GitHubClientTest {
   @Test
   fun `no token omits the Authorization header`() = runTest {
     server.enqueue(repoResponse())
-    server.enqueue(MockResponse.Builder().code(404).build())
 
     client.checkConnection("o/r", "main", token = null)
 

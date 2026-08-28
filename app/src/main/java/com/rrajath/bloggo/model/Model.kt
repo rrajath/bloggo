@@ -399,6 +399,15 @@ fun String.withUpdatedLastmod(timestamp: String): String =
 fun String.withUpdatedDate(timestamp: String): String =
   rewriteFrontmatterFields(listOf("date" to timestamp), appendMissing = true)
 
+/** Sets the frontmatter `draft`/`draft =` field to [draft] in place, preserving
+ * fence style and field order. Written bare (unquoted) in both fence styles, the
+ * way Hugo's own archetypes write booleans. A no-op if the markdown has no
+ * frontmatter block or no `draft` field already in it: this is only reached from
+ * [com.rrajath.bloggo.ui.sheet.PublishSheet]'s "still a draft" prompt, which
+ * only appears when it read a `draft: true` there to begin with. */
+fun String.withUpdatedDraft(draft: Boolean): String =
+  rewriteFrontmatterFields(listOf("draft" to draft.toString()), appendMissing = false)
+
 /** RFC3339, seconds precision — what Hugo's own archetypes write to `date:`/
  * `lastmod:`. Shared so a new post's `date:` (`BloggoApp.kt`) and a page's
  * `lastmod:` stamp are generated the same way. */

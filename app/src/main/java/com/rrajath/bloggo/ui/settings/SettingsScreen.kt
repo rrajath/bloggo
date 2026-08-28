@@ -41,7 +41,7 @@ private val settingsMenuRows = listOf(
   ),
   SettingsMenuRow(
     SettingsPage.Repo, "Repo Settings",
-    "Hugo config, post and image paths, frontmatter", BloggoIcons.Framework,
+    "Post and image paths, frontmatter", BloggoIcons.Framework,
   ),
   SettingsMenuRow(
     SettingsPage.Publishing, "Publishing",

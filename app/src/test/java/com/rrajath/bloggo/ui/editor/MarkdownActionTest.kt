@@ -76,4 +76,53 @@ class MarkdownActionTest {
     assertEquals("[link text](https://)", result.text)
     assertEquals("link text", result.text.substring(result.selection.min, result.selection.max))
   }
+
+  private fun pasteInto(value: TextFieldValue, at: Int, pasted: String): TextFieldValue {
+    val text = value.text.substring(0, at) + pasted + value.text.substring(at)
+    return TextFieldValue(text, TextRange(at + pasted.length))
+  }
+
+  @Test
+  fun `dedupePastedLinkScheme drops the prefill when the pasted URL brings its own https`() {
+    val linked = MarkdownAction.Link.applyTo(TextFieldValue("see episode here", TextRange(4, 11)))
+    val prefillEnd = linked.selection.start
+    val pasted = pasteInto(linked, prefillEnd, "https://example.com")
+
+    val result = dedupePastedLinkScheme(linked, pasted, prefillEnd)
+
+    assertEquals("see [episode](https://example.com) here", result.text)
+    assertEquals("see [episode](https://example.com", result.text.substring(0, result.selection.start))
+  }
+
+  @Test
+  fun `dedupePastedLinkScheme also collapses a pasted http scheme`() {
+    val linked = MarkdownAction.Link.applyTo(TextFieldValue("episode", TextRange(0, 7)))
+    val prefillEnd = linked.selection.start
+
+    val result = dedupePastedLinkScheme(linked, pasteInto(linked, prefillEnd, "http://example.com"), prefillEnd)
+
+    assertEquals("[episode](http://example.com)", result.text)
+  }
+
+  @Test
+  fun `dedupePastedLinkScheme leaves a schemeless paste alone`() {
+    val linked = MarkdownAction.Link.applyTo(TextFieldValue("episode", TextRange(0, 7)))
+    val prefillEnd = linked.selection.start
+    val pasted = pasteInto(linked, prefillEnd, "example.com")
+
+    val result = dedupePastedLinkScheme(linked, pasted, prefillEnd)
+
+    assertEquals("[episode](https://example.com)", result.text)
+  }
+
+  @Test
+  fun `dedupePastedLinkScheme leaves ordinary typing after the prefill alone`() {
+    val linked = MarkdownAction.Link.applyTo(TextFieldValue("episode", TextRange(0, 7)))
+    val prefillEnd = linked.selection.start
+    val typed = pasteInto(linked, prefillEnd, "e")
+
+    val result = dedupePastedLinkScheme(linked, typed, prefillEnd)
+
+    assertEquals("[episode](https://e)", result.text)
+  }
 }

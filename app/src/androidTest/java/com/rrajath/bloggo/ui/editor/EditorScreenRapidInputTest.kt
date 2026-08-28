@@ -101,7 +101,7 @@ class EditorScreenRapidInputTest {
           onToast = {},
           onDeletePost = {},
           onMoveToInbox = {},
-          onPublish = { _, _ -> },
+          onPublish = { _, _, _ -> },
           onInsertImage = {},
           onPendingInsertConsumed = {},
         )

@@ -89,6 +89,7 @@ import com.rrajath.bloggo.model.parseTagList
 import com.rrajath.bloggo.model.slugify
 import com.rrajath.bloggo.model.stagedImagePath
 import com.rrajath.bloggo.model.withUpdatedDate
+import com.rrajath.bloggo.model.withUpdatedDraft
 import com.rrajath.bloggo.ui.editor.EditorScreen
 import com.rrajath.bloggo.ui.focus.FocusScreen
 import com.rrajath.bloggo.ui.inbox.InboxScreen
@@ -805,7 +806,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
       authorName = repoConnection.authorName,
       postPath = repoConnection.postPath,
       imagePath = repoConnection.imagePath,
-      hugoConfigFile = repoConnection.hugoConfigFile,
       frontmatterFields = repoConnection.frontmatterFields,
       frontmatterType = repoConnection.frontmatterType.name,
       publishAction = repoConnection.publishAction.name,
@@ -826,7 +826,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
       }
       backup.postPath?.let { repoConnectionRepository.setPostPath(it) }
       backup.imagePath?.let { repoConnectionRepository.setImagePath(it) }
-      backup.hugoConfigFile?.let { repoConnectionRepository.setHugoConfigFile(it) }
       backup.frontmatterFields?.let { repoConnectionRepository.setFrontmatterFields(it) }
       backup.frontmatterType
         ?.let { raw -> runCatching { FrontmatterType.valueOf(raw) }.getOrNull() }
@@ -917,14 +916,10 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 // was a standing lie about local state. Zero until that
                 // milestone gives this a real count to show instead.
                 queuedCommits = 0,
-                repoSubtitle = if (repoConnection.repository.isNotBlank()) {
-                  val hugoLabel = when (val check = connectionCheck) {
-                    is ConnectionCheck.Connected -> if (check.hugoDetected) "hugo" else "no Hugo config"
-                    else -> "hugo"
-                  }
-                  "${repoConnection.repository} · ${repoConnection.branch} · $hugoLabel"
-                } else {
-                  "${SampleData.sampleRepository} · ${SampleData.sampleBranch} · hugo"
+                // Only shown once the repo actually checks out — an
+                // unverified repo/branch pair is not something to advertise.
+                repoSubtitle = (connectionCheck as? ConnectionCheck.Connected)?.let {
+                  "${repoConnection.repository} · ${repoConnection.branch}"
                 },
                 isRefreshing = isRefreshingLibrary,
                 onRefresh = { scope.launch { refreshLibrary(explicit = true) } },
@@ -1084,8 +1079,6 @@ fun BloggoApp(launchIntent: Intent? = null) {
 
               SettingsPage.Repo -> SettingsRepoScreen(
                 connection = repoConnection,
-                checkResult = connectionCheck,
-                onSaveHugoConfigFile = { file -> scope.launch { repoConnectionRepository.setHugoConfigFile(file) } },
                 onSavePostPath = { path -> scope.launch { repoConnectionRepository.setPostPath(path) } },
                 onSaveImagePath = { path -> scope.launch { repoConnectionRepository.setImagePath(path) } },
                 onSaveFrontmatterFields = { fields -> scope.launch { repoConnectionRepository.setFrontmatterFields(fields) } },
@@ -1292,14 +1285,18 @@ fun BloggoApp(launchIntent: Intent? = null) {
                     back()
                   }
                 },
-                onPublish = { message, date ->
+                onPublish = { message, date, setDraftFalse ->
                   scope.launch {
                     isPublishing = true
                     // Set exactly here, never before: PublishSheet's "Set date
                     // to Today" toggle (or its manual override) must not touch
                     // the frontmatter while the writer is still just editing a
                     // multi-day draft — only the actual Publish tap does.
-                    val updatedMarkdown = post.markdown.withUpdatedDate(date)
+                    var updatedMarkdown = post.markdown.withUpdatedDate(date)
+                    // PublishSheet's "still a draft" prompt: when the writer
+                    // chose to flip it, `draft: true` -> `false` rides along in
+                    // this same commit.
+                    if (setDraftFalse) updatedMarkdown = updatedMarkdown.withUpdatedDraft(false)
                     val claimed = stagedMedia.filter { it.claimedByPostSlug == route.slug }
                     val result = postPublishRepository.publish(
                       post = post.copy(markdown = updatedMarkdown),

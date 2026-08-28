@@ -183,7 +183,7 @@ fun EditorScreen(
   onMoveToInbox: () -> Unit,
   onPromoteToPost: () -> Unit = {},
   onDeleteFragment: () -> Unit = {},
-  onPublish: (message: String, date: String) -> Unit,
+  onPublish: (message: String, date: String, setDraftFalse: Boolean) -> Unit,
   onInsertImage: () -> Unit,
   onPendingInsertConsumed: () -> Unit,
   modifier: Modifier = Modifier,
@@ -213,6 +213,10 @@ fun EditorScreen(
   // keystroke. Irrelevant for a post, which has no `lastmod` concept.
   var lastmodBaseline by remember(post.slug) { mutableStateOf(post.markdown) }
   var showPublish by remember { mutableStateOf(false) }
+  // Set right after the Link toolbar action drops the caret past a prefilled
+  // "https://"; consumed by the very next edit so a pasted URL that already
+  // carries its own scheme replaces the prefill instead of stacking onto it.
+  var pendingLinkSchemeAt by remember(post.slug) { mutableStateOf<Int?>(null) }
 
   fun edit(transform: (TextFieldValue) -> TextFieldValue) {
     val previousValue = value
@@ -328,7 +332,13 @@ fun EditorScreen(
 
     BasicTextField(
       value = value,
-      onValueChange = { edit { _ -> it } },
+      onValueChange = { newValue ->
+        val prefillEnd = pendingLinkSchemeAt
+        pendingLinkSchemeAt = null
+        edit { prev ->
+          if (prefillEnd != null) dedupePastedLinkScheme(prev, newValue, prefillEnd) else newValue
+        }
+      },
       modifier = Modifier
         .testTag("editorMarkdownField")
         .weight(1f)
@@ -352,7 +362,12 @@ fun EditorScreen(
 
     EditorToolbar(
       wordCount = wordCount,
-      onFormat = { action -> edit { action.applyTo(it) } },
+      onFormat = { action ->
+        edit { action.applyTo(it) }
+        // After Link, the caret sits just past the prefilled "https://" — remember
+        // that spot so a pasted URL with its own scheme can replace the prefill.
+        pendingLinkSchemeAt = if (action === MarkdownAction.Link) value.selection.max else null
+      },
       onFocus = onFocus,
       onReview = onReview,
       onCommit = {
@@ -532,7 +547,7 @@ private fun EditorPreview() {
       onToast = {},
       onDeletePost = {},
       onMoveToInbox = {},
-      onPublish = { _, _ -> },
+      onPublish = { _, _, _ -> },
       onInsertImage = {},
       onPendingInsertConsumed = {},
     )

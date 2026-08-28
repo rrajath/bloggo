@@ -5,13 +5,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
-
 ### Changed
+
+- Publishing a post that still has `draft: true` in its frontmatter now asks
+  first whether to set the flag to `false`. Yes flips it in the same commit;
+  No publishes it as a draft with the flag left as is.
+- Pasting a link that already carries its own `http://` or `https://` into the
+  URL slot the Link toolbar button prefills now replaces the prefilled
+  `https://` instead of stacking on it.
 
 ### Fixed
 
-### Removed
+- The Publish sheet's "Changes" list now shows the file path built from the
+  frontmatter `slug:`, matching the file actually committed, so a slug edited
+  in the editor is reflected there. Already-committed posts keep their original
+  filename.
+- The quote rule in the article preview now matches the height of the quote
+  text instead of a fixed two-line rule that overhung a single-line quote.
 
 ## [1.2.0] - 2026-08-28
 
@@ -43,11 +53,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the "ignore" confirmation opens.
 - Library cards and rows are now typography-only: the hero card keeps its
   amber top rule and inline status chip, list rows gain full text width.
+- The Library top bar subtitle now shows just the repository and branch, and
+  only once the connection has verified.
 
 ### Fixed
 
 ### Removed
 
+- Hugo config file detection. The connection check no longer lists the repo
+  root to find a `hugo.toml` / `config.toml` candidate, `ConnectionCheck`
+  no longer reports it, the Repo Settings "Framework" row (which edited the
+  detected filename) is gone, the `hugo_config_file` setting and its
+  `hugoConfigFile` backup field are removed, and the connection banner drops
+  the "Hugo detected" clause.
 - Generated cover art, everywhere it appeared: the library hero/thumbnail
   art, the post-details Cover section, the Appearance "Cover art" toggle, the
   `cover:` frontmatter field the app read and wrote, and the `cover` column in
