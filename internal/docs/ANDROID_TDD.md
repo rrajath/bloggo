@@ -345,7 +345,9 @@ Never in DataStore, never in Room, never logged. The OkHttp logging interceptor
 is debug-only and redacts `Authorization`. Built as a debug/release Kotlin
 source-set split (`withDebugLogging()` in `data/github/`, two implementations)
 rather than a `BuildConfig.DEBUG` check, since `:app` builds with
-`buildConfig = false`.
+`buildConfig = false`. The `debug` build type is also a distinct app
+(`com.rrajath.bloggo.debug`, "Bloggo Debug", version suffixed " (debug)") so a
+dev build never overwrites a real install; `release` is unchanged.
 
 The GitHub PAT field on the Settings screen shows the stored token, masked, with
 an eye toggle to reveal it in plain text — a saved field that goes blank the

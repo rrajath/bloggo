@@ -41,7 +41,9 @@ Three Gradle modules (`settings.gradle.kts`):
 
 `:app` depends on both. `:designsystem` re-exports its Compose deps with `api(...)` so `:app` picks them up transitively.
 
-Build config: AGP/Kotlin versions in `gradle/libs.versions.toml`, `minSdk 34`, `compileSdk 36`, Java 17 toolchain, `buildConfig` disabled in every module.
+Build config: AGP/Kotlin versions in `gradle/libs.versions.toml`, `minSdk 34`, `compileSdk 36`, Java 17 toolchain, `buildConfig` disabled in every module (`resValues` is enabled in `:app` for the per-variant `app_name`).
+
+**Build variants:** `:app` has a `debug` and a `release` build type (no product flavors). The `debug` type sets `applicationIdSuffix = ".debug"`, `versionNameSuffix = " (debug)"`, and `resValue("string", "app_name", "Bloggo Debug")`, so a debug build installs alongside a release build as a separate app ("Bloggo Debug", `com.rrajath.bloggo.debug`). `app_name` is defined via `resValue` in `defaultConfig` ("Bloggo"), not `strings.xml`, so the debug override does not collide. `app/src/debug/res/xml/shortcuts.xml` mirrors the main one with the `.debug` `targetPackage` (AGP does not substitute `${applicationId}` in `res/xml`); keep the two in sync. The `release` type is unchanged by this and stays the production config.
 
 ## Architecture
 

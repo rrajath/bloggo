@@ -125,6 +125,11 @@ android run
 
 minSdk is 34.
 
+The `debug` and `release` build types produce distinct apps: a debug build is
+`com.rrajath.bloggo.debug`, is named "Bloggo Debug", and has its version tagged
+` (debug)`, so it can sit on a device next to a release install without
+clobbering it. `release` is the production config (signed in CI, R8-shrunk).
+
 ### Versioning
 
 `versionName` is hand-managed in `gradle.properties` as `bloggo.versionName`
