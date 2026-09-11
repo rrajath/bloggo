@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Publishing a post now leaves the editor for the Library (or the Pages list,
+  for a page) and refreshes it, so the writer lands back on the list with the
+  post already moved out of Drafts instead of staying on the editor.
+
 - Publishing a post that still has `draft: true` in its frontmatter now asks
   first whether to set the flag to `false`. Yes flips it in the same commit;
   No publishes it as a draft with the flag left as is.
@@ -22,6 +26,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   filename.
 - The quote rule in the article preview now matches the height of the quote
   text instead of a fixed two-line rule that overhung a single-line quote.
+- The editor now scrolls the cursor's line into view as the keyboard opens or
+  the cursor moves while typing, instead of leaving it hidden under the IME.
+- Returning to the editor from Preview or Review for the same post no longer
+  jumps the scroll position to the bottom of the document. The editor now
+  restores the cursor position the writer left it at, instead of always
+  resetting the caret to the end of the document on every fresh mount.
 
 ## [1.2.0] - 2026-08-28
 

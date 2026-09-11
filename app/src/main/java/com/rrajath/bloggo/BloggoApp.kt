@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.rrajath.bloggo.data.FrontmatterType
@@ -419,6 +420,15 @@ fun BloggoApp(launchIntent: Intent? = null) {
     var remotePostSlugs by remember { mutableStateOf<Set<String>>(emptySet()) }
     var remotePageSlugs by remember { mutableStateOf<Set<String>>(emptySet()) }
 
+    // Slugs committed by a publish this session but not yet visible in the git
+    // trees API. Publishing navigates straight to the Library/Pages list and
+    // refreshes it; GitHub's tree listing can lag a commit by a second or two,
+    // and without this guard that refresh's removeAll (slug is already in
+    // remotePostSlugs, not yet in the fresh tree) would make the post the writer
+    // just published vanish from the list. A slug drops out of here the first
+    // refresh whose fresh tree actually contains it.
+    val recentlyPublishedSlugs = remember { mutableStateListOf<String>() }
+
     // Images picked on-device but not yet committed, in-memory only — lost on
     // process death by design, the same durability boundary a post's own
     // in-progress edits sit behind today (PROGRESS.md's still-open "Editor
@@ -434,6 +444,19 @@ fun BloggoApp(launchIntent: Intent? = null) {
     // works for the "Capture a thought" shortcut.
     var pendingInsertImage by remember { mutableStateOf<MediaFile?>(null) }
     var mediaFiles by remember { mutableStateOf(SampleData.media) }
+
+    // Last known cursor/selection per slug, so a round trip through
+    // Preview/Review and back to the Editor for the *same* post restores
+    // where the writer's caret was instead of EditorScreen's own
+    // `remember(post.slug)` defaulting fresh to end-of-document on every
+    // mount. The `when (current)` in this composable's Box fully disposes
+    // whichever route branch isn't showing (see the comment on that Box
+    // below), so nothing local to EditorScreen survives that trip on its
+    // own — this has to live up here, next to the other state that already
+    // outlives a single route branch. A plain (non-snapshot) map is enough:
+    // it's only ever read once, as EditorScreen's initial value for a given
+    // slug, never observed reactively.
+    val editorSelectionBySlug = remember { mutableMapOf<String, TextRange>() }
 
     // Staged bytes are process-lifetime only (StagedMedia's own doc comment) —
     // any left over from a previous process are already orphaned, so the cache
@@ -689,13 +712,15 @@ fun BloggoApp(launchIntent: Intent? = null) {
         is LibraryRefreshResult.Success -> {
           val freshSlugs = result.posts.map { it.slug }.toSet()
           posts.removeAll {
-            it.kind == DocKind.Post && (it.slug in sampleSlugs || it.slug in remotePostSlugs) && it.slug !in freshSlugs
+            it.kind == DocKind.Post && (it.slug in sampleSlugs || it.slug in remotePostSlugs) &&
+              it.slug !in freshSlugs && it.slug !in recentlyPublishedSlugs
           }
           for (post in result.posts) {
             val index = posts.indexOfFirst { it.slug == post.slug }
             if (index >= 0) posts[index] = post else posts.add(post)
           }
           remotePostSlugs = freshSlugs
+          recentlyPublishedSlugs.removeAll(freshSlugs)
           ensureDraftExists()
         }
         is LibraryRefreshResult.Failed -> toast = "Couldn't refresh the library: ${result.error.describe()}"
@@ -727,13 +752,15 @@ fun BloggoApp(launchIntent: Intent? = null) {
         is PageLibraryRefreshResult.Success -> {
           val freshSlugs = result.pages.map { it.slug }.toSet()
           posts.removeAll {
-            it.kind == DocKind.Page && (it.slug in samplePageSlugs || it.slug in remotePageSlugs) && it.slug !in freshSlugs
+            it.kind == DocKind.Page && (it.slug in samplePageSlugs || it.slug in remotePageSlugs) &&
+              it.slug !in freshSlugs && it.slug !in recentlyPublishedSlugs
           }
           for (page in result.pages) {
             val index = posts.indexOfFirst { it.slug == page.slug }
             if (index >= 0) posts[index] = page else posts.add(page)
           }
           remotePageSlugs = freshSlugs
+          recentlyPublishedSlugs.removeAll(freshSlugs)
         }
         is PageLibraryRefreshResult.Failed -> toast = "Couldn't refresh pages: ${result.error.describe()}"
       }
@@ -1141,6 +1168,14 @@ fun BloggoApp(launchIntent: Intent? = null) {
                 publishResult = publishResult,
                 pendingInsertImage = pendingInsertImage,
                 isFragmentPreview = isFragmentPreview,
+                // Restores where the writer's caret was the last time this
+                // exact slug was open in the Editor — see
+                // editorSelectionBySlug's own doc comment above. Absent
+                // for a slug that's never been open before, which leaves
+                // EditorScreen's own end-of-document default alone for a
+                // genuinely fresh editor session.
+                initialSelection = editorSelectionBySlug[route.slug],
+                onSelectionChange = { selection -> editorSelectionBySlug[route.slug] = selection },
                 // The count comes from the editor, which already measured this
                 // exact string to update its own toolbar. Recomputing it here was
                 // a second full-document pass per keystroke.
@@ -1308,21 +1343,43 @@ fun BloggoApp(launchIntent: Intent? = null) {
                     publishResult = result
                     isPublishing = false
                     if (result is PublishResult.Success) {
+                      // Publish leaves Post.state alone in general (see Model.kt),
+                      // but the writer expects the post they just published to
+                      // drop out of the Library's Drafts list right away — so
+                      // when this commit actually makes it live (its frontmatter
+                      // is no longer `draft: true`), flip the local state to
+                      // Published now instead of waiting for the refresh below to
+                      // reconcile it.
+                      val nowLive = post.kind == DocKind.Post &&
+                        !updatedMarkdown.parseFrontmatter()["draft"].equals("true", ignoreCase = true)
                       updatePost(route.slug) {
                         it.copy(
                           repoPath = result.repoPath,
                           markdown = updatedMarkdown,
+                          state = if (nowLive) PostState.Published else it.state,
                           editedAgo = "just now",
                           updatedAt = System.currentTimeMillis(),
                         )
                       }
                       stagedMedia.removeAll { it.claimedByPostSlug == route.slug }
+                      recentlyPublishedSlugs.add(route.slug)
                       if (post.kind == DocKind.Page) {
                         remotePageSlugs = remotePageSlugs + route.slug
                       } else {
                         remotePostSlugs = remotePostSlugs + route.slug
                       }
                       toast = "Published"
+                      // Land on the list this document lives in and pull a fresh
+                      // copy from the repo — the writer is done with the editor,
+                      // and the refresh replaces the optimistic local entry with
+                      // the committed one.
+                      if (post.kind == DocKind.Page) {
+                        go(Route.Pages)
+                        refreshPages()
+                      } else {
+                        go(Route.Library)
+                        refreshLibrary()
+                      }
                     }
                   }
                 },

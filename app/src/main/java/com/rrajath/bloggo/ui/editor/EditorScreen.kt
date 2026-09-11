@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
@@ -173,6 +176,20 @@ fun EditorScreen(
    * so committing it would either crash or silently orphan a published post
    * `posts` never heard about — it must be promoted first. */
   isFragmentPreview: Boolean = false,
+  /** The caret/selection [post.slug] was left at the last time this screen
+   * was open for it, threaded down from `BloggoApp`'s `editorSelectionBySlug`
+   * — this composable (and everything `remember`ed inside it) is fully
+   * disposed and re-mounted on a round trip through Preview/Review, so
+   * nothing local survives that on its own. Null for a slug that's never
+   * been open in this session, which falls back to the same end-of-document
+   * default a genuinely fresh editor session already used. */
+  initialSelection: TextRange? = null,
+  /** Reports every selection change (cursor moves, not just text edits) so
+   * the caller can remember it for the next time this slug is opened. Firing
+   * on every change rather than only on `onBack`/navigation is what makes a
+   * plain-scroll-then-switch-tabs round trip (no edit, no explicit "leaving"
+   * moment) still land on the right spot — see [initialSelection]. */
+  onSelectionChange: (TextRange) -> Unit = {},
   onMarkdownChange: (markdown: String, wordCount: Int) -> Unit,
   onBack: () -> Unit,
   onPreview: () -> Unit,
@@ -190,7 +207,19 @@ fun EditorScreen(
 ) {
   val colors = BloggoTheme.colors
   var value by remember(post.slug) {
-    mutableStateOf(TextFieldValue(post.markdown, TextRange(post.markdown.length)))
+    // A restored selection is only trustworthy as far as the document it was
+    // captured against — coerced into range rather than trusted outright,
+    // since the markdown length this slug last had (before whatever caused
+    // this remount) isn't guaranteed to match `post.markdown.length` now.
+    // Falling back to end-of-document mirrors the pre-existing default for a
+    // slug this session has never had a recorded selection for.
+    val restored = initialSelection?.let {
+      TextRange(
+        it.start.coerceIn(0, post.markdown.length),
+        it.end.coerceIn(0, post.markdown.length),
+      )
+    }
+    mutableStateOf(TextFieldValue(post.markdown, restored ?: TextRange(post.markdown.length)))
   }
   // Recomputed once per actual edit below, not on every recomposition — see `edit()`. A large
   // post's word count is a full-document pass (model/Model.kt), and the toolbar re-reading
@@ -217,6 +246,27 @@ fun EditorScreen(
   // "https://"; consumed by the very next edit so a pasted URL that already
   // carries its own scheme replaces the prefill instead of stacking onto it.
   var pendingLinkSchemeAt by remember(post.slug) { mutableStateOf<Int?>(null) }
+
+  // The shell reserves space for the IME with imePadding() (BloggoApp.kt), but
+  // that alone doesn't scroll anything — it only shrinks the space the editor
+  // has left. Without this, a cursor near the bottom of that shrunken area
+  // stays exactly where it is and ends up hidden under the keyboard. Asking
+  // the field to bring itself into view (on focus, and again as the cursor
+  // moves while typing) is what actually scrolls it clear.
+  val bringIntoViewRequester = remember { BringIntoViewRequester() }
+  var isFieldFocused by remember { mutableStateOf(false) }
+  LaunchedEffect(value.selection, isFieldFocused) {
+    if (isFieldFocused) bringIntoViewRequester.bringIntoView()
+  }
+  // Keeps the caller's per-slug record (BloggoApp's editorSelectionBySlug)
+  // current as the cursor moves, not just when the text changes — a plain
+  // scroll-then-switch-screens round trip never touches `value.selection`
+  // itself, but whatever it was last set to (by a prior edit or tap) is
+  // still the best restore point this screen can offer on the way back in.
+  // See [onSelectionChange]/[initialSelection]'s doc comments.
+  LaunchedEffect(value.selection) {
+    onSelectionChange(value.selection)
+  }
 
   fun edit(transform: (TextFieldValue) -> TextFieldValue) {
     val previousValue = value
@@ -343,6 +393,8 @@ fun EditorScreen(
         .testTag("editorMarkdownField")
         .weight(1f)
         .fillMaxWidth()
+        .bringIntoViewRequester(bringIntoViewRequester)
+        .onFocusChanged { isFieldFocused = it.isFocused }
         .padding(horizontal = 18.dp, vertical = 16.dp),
       textStyle = BloggoTheme.type.editorSource.copy(color = colors.ink),
       visualTransformation = transformation,

@@ -1,5 +1,7 @@
 package com.rrajath.bloggo.ui.editor
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextInput
@@ -98,5 +100,87 @@ class EditorScreenTest {
     composeTestRule.waitForIdle()
 
     assertEquals("untitled", latestMarkdown.substringAfter("slug: ").substringBefore("\n"))
+  }
+
+  private fun selectionOf(field: SemanticsNodeInteraction): TextRange =
+    field.fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange]
+
+  // Regression test for the "scroll/caret resets to the very end" bug:
+  // BloggoApp.kt's `when (route)` fully disposes EditorScreen (and anything
+  // `remember`ed inside it) on a round trip through Preview/Review, and
+  // EditorScreen used to always re-seed `value` with the caret pinned to
+  // end-of-document on every fresh mount, dragging BasicTextField's own
+  // auto-scroll-to-cursor down with it. `initialSelection`/`onSelectionChange`
+  // are how BloggoApp now survives that disposal — this drives EditorScreen
+  // through exactly that "disposed and remounted for the same slug" shape by
+  // tearing down and rebuilding the composition between two setContent calls,
+  // carrying the selection across the same way BloggoApp's
+  // editorSelectionBySlug does.
+  @Test
+  fun reopeningTheSameSlugRestoresTheCaretInsteadOfJumpingToTheEnd() {
+    val post = Post(slug = "untitled-1", title = "Untitled", state = PostState.Draft, markdown = startMarkdown)
+    val midpoint = startMarkdown.indexOf("draft: true")
+    var capturedSelection: TextRange? = null
+
+    composeTestRule.setContent {
+      BloggoTheme {
+        EditorScreen(
+          post = post,
+          tagPool = emptyList(),
+          connection = RepoConnection(),
+          remoteSlugs = emptySet(),
+          stagedMediaForPost = emptyList(),
+          isPublishing = false,
+          publishResult = null,
+          pendingInsertImage = null,
+          onSelectionChange = { capturedSelection = it },
+          onMarkdownChange = { _, _ -> },
+          onBack = {},
+          onPreview = {},
+          onFocus = {},
+          onReview = {},
+          onToast = {},
+          onDeletePost = {},
+          onMoveToInbox = {},
+          onPublish = { _, _, _ -> },
+          onInsertImage = {},
+          onPendingInsertConsumed = {},
+        )
+      }
+    }
+    composeTestRule.onNodeWithTag("editorMarkdownField").performTextInputSelection(TextRange(midpoint))
+    composeTestRule.waitUntil(timeoutMillis = 2_000) { capturedSelection == TextRange(midpoint) }
+
+    // A second, independent setContent — not a recomposition of the first —
+    // is what stands in for BloggoApp fully disposing and re-mounting
+    // EditorScreen on the way back from Preview/Review.
+    composeTestRule.setContent {
+      BloggoTheme {
+        EditorScreen(
+          post = post,
+          tagPool = emptyList(),
+          connection = RepoConnection(),
+          remoteSlugs = emptySet(),
+          stagedMediaForPost = emptyList(),
+          isPublishing = false,
+          publishResult = null,
+          pendingInsertImage = null,
+          initialSelection = capturedSelection,
+          onMarkdownChange = { _, _ -> },
+          onBack = {},
+          onPreview = {},
+          onFocus = {},
+          onReview = {},
+          onToast = {},
+          onDeletePost = {},
+          onMoveToInbox = {},
+          onPublish = { _, _, _ -> },
+          onInsertImage = {},
+          onPendingInsertConsumed = {},
+        )
+      }
+    }
+
+    assertEquals(TextRange(midpoint), selectionOf(composeTestRule.onNodeWithTag("editorMarkdownField")))
   }
 }
