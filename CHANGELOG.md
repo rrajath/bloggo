@@ -5,6 +5,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.2.2] - 2026-09-11
+
 ### Changed
 
 - Publishing a post now leaves the editor for the Library (or the Pages list,
