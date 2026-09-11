@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
@@ -206,6 +207,7 @@ fun EditorScreen(
   modifier: Modifier = Modifier,
 ) {
   val colors = BloggoTheme.colors
+  val clipboardManager = LocalClipboardManager.current
   var value by remember(post.slug) {
     // A restored selection is only trustworthy as far as the document it was
     // captured against — coerced into range rather than trusted outright,
@@ -415,10 +417,20 @@ fun EditorScreen(
     EditorToolbar(
       wordCount = wordCount,
       onFormat = { action ->
-        edit { action.applyTo(it) }
-        // After Link, the caret sits just past the prefilled "https://" — remember
-        // that spot so a pasted URL with its own scheme can replace the prefill.
-        pendingLinkSchemeAt = if (action === MarkdownAction.Link) value.selection.max else null
+        if (action === MarkdownAction.Link) {
+          // A selection with a URL already on the clipboard gets linked straight to it,
+          // highlighted so it can be deleted in one keystroke if it's not wanted; anything
+          // else falls back to Link's bare-scheme prefill.
+          val hasSelection = value.selection.min != value.selection.max
+          val clipboardUrl = if (hasSelection) urlOrNull(clipboardManager.getText()?.text) else null
+          edit { MarkdownAction.linkFor(clipboardUrl).applyTo(it) }
+          // With no clipboard URL, the caret sits just past the prefilled "https://" —
+          // remember that spot so a pasted URL with its own scheme can replace the prefill.
+          pendingLinkSchemeAt = if (clipboardUrl == null) value.selection.max else null
+        } else {
+          edit { action.applyTo(it) }
+          pendingLinkSchemeAt = null
+        }
       },
       onFocus = onFocus,
       onReview = onReview,

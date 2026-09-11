@@ -20,13 +20,17 @@ sealed interface MarkdownAction {
    *
    * When there's a selection, the caret normally lands right after [after]. Pass
    * [afterCaretOffset] to land it inside [after] instead, e.g. Link uses it to drop the
-   * caret right after "https://" so the placeholder URL is ready to be typed over.
+   * caret right after "https://" so the placeholder URL is ready to be typed over. Pass
+   * [afterHighlightRange] instead to *select* a span inside [after] rather than just
+   * park the caret in it, e.g. Link highlights a URL pasted in from the clipboard so
+   * it can be replaced with a single keystroke if it's not wanted.
    */
   data class Wrap(
     val before: String,
     val after: String,
     val placeholder: String,
     val afterCaretOffset: Int? = null,
+    val afterHighlightRange: IntRange? = null,
   ) : MarkdownAction {
     override fun applyTo(value: TextFieldValue): TextFieldValue {
       val start = value.selection.min
@@ -35,13 +39,16 @@ sealed interface MarkdownAction {
       val content = selected.ifEmpty { placeholder }
       val text = value.text.substring(0, start) + before + content + after + value.text.substring(end)
       val contentStart = start + before.length
+      val afterStart = contentStart + content.length
       return TextFieldValue(
         text = text,
-        selection = if (selected.isEmpty()) {
-          // No selection, so offer the placeholder ready to be typed over.
-          TextRange(contentStart, contentStart + content.length)
-        } else {
-          TextRange(contentStart + content.length + (afterCaretOffset ?: after.length))
+        selection = when {
+          selected.isEmpty() ->
+            // No selection, so offer the placeholder ready to be typed over.
+            TextRange(contentStart, contentStart + content.length)
+          afterHighlightRange != null ->
+            TextRange(afterStart + afterHighlightRange.first, afterStart + afterHighlightRange.last + 1)
+          else -> TextRange(afterStart + (afterCaretOffset ?: after.length))
         },
       )
     }
@@ -126,8 +133,37 @@ sealed interface MarkdownAction {
 
     /** The literal scheme [Link] prefills into `]( … )` and lands the caret after. */
     const val LINK_URL_PREFILL = LINK_URL_PLACEHOLDER
+
+    /**
+     * The Link action to use for a selection, given what's on the clipboard.
+     * A usable [clipboardUrl] replaces the usual "https://" prefill outright, with
+     * the URL highlighted in the result instead of just parking the caret after it,
+     * so a writer who doesn't want it can delete it with a single keystroke while
+     * the keyboard is still up. With no usable URL on the clipboard, falls back to
+     * [Link] itself: the bare scheme, caret parked ready to type.
+     */
+    fun linkFor(clipboardUrl: String?): Wrap {
+      if (clipboardUrl == null) return Link
+      val after = "]($clipboardUrl)"
+      val urlStart = after.indexOf(clipboardUrl)
+      return Wrap(
+        before = "[",
+        after = after,
+        placeholder = "link text",
+        afterHighlightRange = urlStart until (urlStart + clipboardUrl.length),
+      )
+    }
   }
 }
+
+/** Regex form of the same `http(s)://` scheme convention [MarkdownAction.Link] itself
+ * prefills into a link. Requires the whole (trimmed) string to be one URL with no
+ * embedded whitespace, so a multi-line or prose clipboard isn't mistaken for one. */
+private val urlSchemeRegex = Regex("^https?://\\S+$", RegexOption.IGNORE_CASE)
+
+/** [text] (typically the clipboard's contents) as a URL, if it looks like exactly
+ * one — see [urlSchemeRegex]. Null for anything else, including blank text. */
+fun urlOrNull(text: String?): String? = text?.trim()?.takeIf { urlSchemeRegex.matches(it) }
 
 /**
  * [MarkdownAction.Link] wraps a selection as `[text](https://)` and leaves the

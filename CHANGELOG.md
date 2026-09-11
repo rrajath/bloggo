@@ -17,6 +17,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pasting a link that already carries its own `http://` or `https://` into the
   URL slot the Link toolbar button prefills now replaces the prefilled
   `https://` instead of stacking on it.
+- Tapping the Link toolbar button with text selected now checks the clipboard
+  first: a copied URL is used straight away as the link target, highlighted so
+  it can be replaced in one keystroke, with the keyboard staying open. With no
+  URL on the clipboard, the button still falls back to the bare `https://`
+  prefill with the caret parked ready to type.
 
 ### Fixed
 

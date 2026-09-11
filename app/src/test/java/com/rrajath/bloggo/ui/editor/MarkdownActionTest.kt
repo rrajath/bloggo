@@ -125,4 +125,42 @@ class MarkdownActionTest {
 
     assertEquals("[episode](https://e)", result.text)
   }
+
+  @Test
+  fun `linkFor with a clipboard url wraps the selection and highlights the url`() {
+    val value = TextFieldValue("Read the docs", TextRange(9, 13))
+
+    val result = MarkdownAction.linkFor("https://example.com/docs").applyTo(value)
+
+    assertEquals("Read the [docs](https://example.com/docs)", result.text)
+    assertEquals(
+      "https://example.com/docs",
+      result.text.substring(result.selection.min, result.selection.max),
+    )
+  }
+
+  @Test
+  fun `linkFor with no clipboard url falls back to the bare-scheme prefill`() {
+    val value = TextFieldValue("Read the docs", TextRange(9, 13))
+
+    val result = MarkdownAction.linkFor(null).applyTo(value)
+
+    assertEquals(MarkdownAction.Link.applyTo(value), result)
+  }
+
+  @Test
+  fun `urlOrNull recognizes an https or http url with no surrounding text`() {
+    assertEquals("https://example.com", urlOrNull("https://example.com"))
+    assertEquals("http://example.com", urlOrNull("http://example.com"))
+    assertEquals("https://example.com/path?q=1", urlOrNull("  https://example.com/path?q=1  "))
+  }
+
+  @Test
+  fun `urlOrNull rejects non-url or multi-token clipboard text`() {
+    assertEquals(null, urlOrNull(null))
+    assertEquals(null, urlOrNull(""))
+    assertEquals(null, urlOrNull("example.com"))
+    assertEquals(null, urlOrNull("check out https://example.com"))
+    assertEquals(null, urlOrNull("https://example.com\nhttps://other.com"))
+  }
 }
